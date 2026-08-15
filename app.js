@@ -46,6 +46,35 @@ const Store = {
 
   reset() { this.d = this.blank(); this.save(); },
 
+  /* ---- バックアップ ----
+     端末のデータ消去やiOSの自動削除に備えて、記録を文字列で持ち出せるようにする。
+     PCとスマホの記録は別々に貯まるので、寄せたいときにも使う。 */
+  exportText() {
+    return JSON.stringify({ app: 'bars-and-words', v: 1, saved: ymd(new Date()), data: this.d });
+  },
+
+  importText(text) {
+    let o;
+    try { o = JSON.parse(text); }
+    catch (e) { return { ok: false, msg: '読み取れませんでした。文字列が途中で切れていないか確認してください。' }; }
+
+    const d = (o && o.app === 'bars-and-words') ? o.data : o;
+    if (!d || typeof d !== 'object' || typeof d.xp !== 'number' || !d.quiz) {
+      return { ok: false, msg: 'このアプリの記録ではないようです。' };
+    }
+
+    /* 足りない項目は初期値で埋める（古い版の書き出しでも読める） */
+    const b = this.blank();
+    for (const k in b) if (!(k in d)) d[k] = b[k];
+
+    this.d = d;
+    this.save();
+    return {
+      ok: true,
+      msg: `復元しました。XP ${d.xp} ／ ツアー ${d.clearedEras.length}/${ERAS.length} クリア`,
+    };
+  },
+
   touchToday() {
     const t = ymd(new Date());
     if (this.d.lastDay === t) return;
@@ -1056,6 +1085,45 @@ function boot() {
   $('#era-play').onclick = () => Era.playAll();
   $('#quiz-quit').onclick = () => { Speech.stop(); Nav.go('home'); };
   $('#r-again').onclick = () => Quiz.again();
+
+  /* ---- 記録の書き出し / 読み込み ---- */
+  const box = $('#backup-box');
+  const msg = $('#backup-msg');
+  const say = (t, ok) => {
+    msg.textContent = t;
+    msg.className = 'backup-msg ' + (ok ? 'ok' : 'ng');
+  };
+
+  $('#btn-export').onclick = async () => {
+    const text = Store.exportText();
+    box.value = text;
+    box.select();
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    } catch (e) {
+      try { copied = document.execCommand('copy'); } catch (e2) {}
+    }
+    say(copied
+      ? 'コピーしました。メモアプリなどに貼って保管してください。'
+      : '書き出しました。上の枠の文字列を全部コピーして保管してください。', true);
+  };
+
+  $('#btn-import').onclick = () => {
+    const text = box.value.trim();
+    if (!text) return say('先に、保管しておいた文字列を上の枠に貼り付けてください。', false);
+
+    const cur = Store.d;
+    const warn = (cur.xp > 0 || cur.answered > 0)
+      ? `いまの記録（XP ${cur.xp}／ツアー ${cur.clearedEras.length}/${ERAS.length} クリア）は上書きされます。\n元には戻せません。\n\n読み込んでよろしいですか？`
+      : '記録を読み込みます。よろしいですか？';
+    if (!confirm(warn)) return;
+
+    const r = Store.importText(text);
+    say(r.msg, r.ok);
+    if (r.ok) { Home.render(); Stats.render(); }
+  };
 
   $('#btn-reset').onclick = () => {
     const d = Store.d;

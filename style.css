@@ -657,6 +657,27 @@ body::before {
 .weak span { font-size: 12.5px; color: var(--text-2); }
 .weak em { margin-left: auto; font-style: normal; font-family: var(--f-disp); font-size: 13px; color: var(--ng); }
 
+/* ---------------- 記録のバックアップ ---------------- */
+.backup { padding: 8px 20px 0; }
+.backup h2 {
+  font-family: var(--f-disp); font-size: 16px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--gold); margin: 0 0 8px;
+}
+.backup p { font-size: 12.5px; color: var(--text-3); line-height: 1.75; margin: 0 0 12px; }
+.backup-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.backup-box {
+  width: 100%; height: 96px; margin-top: 12px;
+  background: var(--bg-2); color: var(--text-2);
+  border: 2px solid var(--ink); border-radius: 10px;
+  padding: 12px; font-size: 11.5px; line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  resize: vertical;
+}
+.backup-box::placeholder { color: var(--text-3); }
+.backup-msg { font-size: 12.5px; line-height: 1.7; margin-top: 10px; min-height: 18px; }
+.backup-msg.ok { color: var(--ok); }
+.backup-msg.ng { color: var(--ng); }
+
 .about-body { padding: 20px; }
 .about-body h2 {
   font-family: var(--f-disp); font-weight: 400;

@@ -178,6 +178,20 @@
       <h1>記録</h1>
     </header>
     <div class="stats-body" id="stats-body"></div>
+
+    <div class="backup">
+      <h2>記録のバックアップ</h2>
+      <p>端末のデータを消したときや、スマホとPCで記録を寄せたいときに使います。
+         書き出した文字列は、メモアプリなどに貼って保管してください。</p>
+      <div class="backup-btns">
+        <button class="btn-ghost small" id="btn-export">記録を書き出す</button>
+        <button class="btn-ghost small" id="btn-import">記録を読み込む</button>
+      </div>
+      <textarea id="backup-box" class="backup-box" spellcheck="false"
+                placeholder="ここに書き出した文字列が出ます。読み込むときは、保管しておいた文字列をここに貼り付けてから「読み込む」を押してください。"></textarea>
+      <div class="backup-msg" id="backup-msg"></div>
+    </div>
+
     <div class="pad center">
       <button class="btn-ghost small" id="btn-reset">記録をすべて消す</button>
     </div>
@@ -251,10 +265,24 @@
 <script src="commute.js"></script>
 
 <script>
-/* オフラインで動かすための登録。file:// で開いたときは何もしない */
+/* オフラインで動かすための登録。file:// で開いたときは何もしない。
+   アプリを更新したときは、新しい版が入り次第 1度だけ自動で読み直す
+   （「直したのに変わらない」を防ぐため）。学習記録は localStorage にあるので影響しない。 */
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded) return;   // 初回インストール時は読み直さない
+    reloaded = true;
+    location.reload();
+  });
+
   addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      /* 起動のたびに更新を確認する */
+      reg.update().catch(() => {});
+    }).catch(() => {});
   });
 }
 </script>
