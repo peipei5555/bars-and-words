@@ -1,0 +1,2536 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bars & Words">
+<meta name="theme-color" content="#0E0E12">
+<title>Bars &amp; Words — ヒップホップで学ぶ英会話</title>
+<style>
+/* ===========================================================
+   Bars & Words — スタイル
+   ダークテーマ。英文は読みやすさ優先で大きめ・行間広め。
+   =========================================================== */
+
+:root {
+  --bg:      #0E0E12;
+  --bg-2:    #16161E;
+  --card:    #1B1B24;
+  --card-2:  #22222D;
+  --line:    #2C2C3A;
+  --text:    #ECECF2;
+  --text-2:  #9A9AAE;
+  --text-3:  #6C6C82;
+  --gold:    #E0B33C;
+  --red:     #D9564F;
+  --teal:    #4FBFA8;
+  --indigo:  #7E8CF0;
+  --violet:  #B15FD6;
+  --blue:    #5BA9CC;
+  --ok:      #46C08B;
+  --ng:      #E0605F;
+  --r:       16px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+               "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app { height: 100%; position: relative; }
+
+.screen {
+  position: absolute; inset: 0;
+  display: none; flex-direction: column;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.screen.active { display: flex; animation: in .2s ease; }
+@keyframes in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.pad { height: 48px; }
+.pad.center { display: flex; justify-content: center; align-items: center; height: auto; padding: 32px 0 56px; }
+
+/* ---------------- 共通バー ---------------- */
+.bar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 12px;
+  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+  background: rgba(14,14,18,.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.bar h1 { flex: 1; font-size: 17px; margin: 0; font-weight: 700; letter-spacing: .01em; }
+.back {
+  border: 1px solid var(--line); background: var(--card);
+  color: var(--text); font-size: 15px; font-family: inherit;
+  min-width: 42px; height: 38px; padding: 0 12px; border-radius: 10px; cursor: pointer;
+}
+.back:active { background: var(--card-2); }
+.bar-btn {
+  border: 1px solid var(--line); background: var(--card);
+  color: var(--text-2); font-family: inherit; font-size: 13px; font-weight: 600;
+  height: 36px; padding: 0 14px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+}
+.bar-btn:active { background: var(--card-2); color: var(--text); }
+
+.lead { padding: 16px 20px 0; margin: 0; color: var(--text-2); font-size: 14px; line-height: 1.75; }
+.lead b { color: var(--text); }
+.sec-h { padding: 28px 20px 4px; margin: 0; font-size: 14px; color: var(--text-3); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+
+/* ===========================================================
+   ホーム
+   =========================================================== */
+.hero { padding: calc(40px + env(safe-area-inset-top)) 20px 24px; }
+.hero-tag {
+  font-size: 11px; letter-spacing: .22em; color: var(--gold);
+  font-weight: 700; margin-bottom: 10px;
+}
+.hero-title {
+  font-size: 40px; margin: 0; font-weight: 800; letter-spacing: -.02em;
+  background: linear-gradient(100deg, #fff 20%, var(--gold) 60%, var(--red) 95%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero-sub { margin: 8px 0 22px; color: var(--text-2); font-size: 14px; }
+
+.rank-row { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.rank-badge {
+  font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--bg); background: var(--gold);
+  padding: 5px 12px; border-radius: 999px; white-space: nowrap;
+}
+.rank-bar { flex: 1; height: 6px; background: var(--card); border-radius: 999px; overflow: hidden; }
+.rank-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--gold), var(--red)); transition: width .6s cubic-bezier(.3,1.2,.4,1); }
+.rank-xp { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.hero-stats { display: flex; gap: 28px; }
+.hero-stats div { display: flex; flex-direction: column; }
+.hero-stats b { font-size: 24px; font-weight: 800; line-height: 1.1; }
+.hero-stats span { font-size: 11px; color: var(--text-3); margin-top: 3px; }
+
+/* ---------------- モードカード ---------------- */
+.mode-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  padding: 0 20px;
+}
+.mode {
+  position: relative; overflow: hidden;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 18px 16px 16px;
+  text-align: left; font-family: inherit; color: var(--text);
+  cursor: pointer; transition: transform .12s, border-color .2s;
+}
+.mode::before {
+  content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--c);
+}
+.mode:active { transform: scale(.975); border-color: var(--c); }
+.mode .m-ico { font-size: 26px; display: block; margin-bottom: 10px; }
+.mode b { display: block; font-size: 15px; font-weight: 700; }
+.mode small { display: block; font-size: 11.5px; color: var(--text-3); margin-top: 4px; line-height: 1.5; }
+
+.home-foot { display: flex; justify-content: center; gap: 20px; padding: 28px 20px 48px; }
+.link {
+  background: none; border: none; font-family: inherit;
+  color: var(--text-3); font-size: 13px; padding: 8px; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 4px;
+}
+
+/* ===========================================================
+   タイムライン
+   =========================================================== */
+.timeline { padding: 20px 20px 0; }
+.tl-item {
+  position: relative; width: 100%; text-align: left;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 16px 16px 16px 20px; margin-bottom: 12px;
+  font-family: inherit; color: var(--text); cursor: pointer;
+  transition: transform .12s, border-color .2s;
+}
+.tl-item::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--c); border-radius: 3px 0 0 3px; }
+.tl-item:active { transform: scale(.985); border-color: var(--c); }
+.tl-years { font-size: 11px; color: var(--c); font-weight: 700; letter-spacing: .08em; }
+.tl-title { font-size: 17px; font-weight: 700; margin: 4px 0 2px; }
+.tl-ja { font-size: 13px; color: var(--text-2); }
+.tl-place { font-size: 11.5px; color: var(--text-3); margin-top: 8px; }
+.tl-done { position: absolute; top: 16px; right: 16px; font-size: 12px; color: var(--ok); }
+
+/* ===========================================================
+   時代の詳細
+   =========================================================== */
+.era-body { padding: 20px; }
+.era-head { margin-bottom: 24px; }
+.era-years { font-size: 12px; font-weight: 700; letter-spacing: .1em; color: var(--c); }
+.era-title { font-size: 26px; font-weight: 800; margin: 6px 0 4px; line-height: 1.25; }
+.era-ja { font-size: 14px; color: var(--text-2); }
+.era-place { font-size: 12px; color: var(--text-3); margin-top: 10px; }
+
+.sent {
+  background: var(--card); border: 1px solid var(--line);
+  border-left: 3px solid var(--c);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 10px;
+  cursor: pointer; transition: background .15s;
+}
+.sent:active { background: var(--card-2); }
+.sent.on { background: var(--card-2); border-color: var(--c); }
+.sent-en { font-size: 16.5px; line-height: 1.65; letter-spacing: .005em; }
+.sent-ja { font-size: 13px; color: var(--text-2); line-height: 1.7; margin-top: 8px; display: none; }
+.sent.on .sent-ja { display: block; }
+.sent-hint { font-size: 11px; color: var(--text-3); margin-top: 8px; }
+
+.era-sec { margin-top: 32px; }
+.era-sec h3 { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); margin: 0 0 12px; }
+
+.fig { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.fig-name { font-size: 15px; font-weight: 700; }
+.fig-role { font-size: 11px; color: var(--c); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+.fig-note { font-size: 12.5px; color: var(--text-2); margin-top: 5px; line-height: 1.6; }
+
+.term { display: flex; align-items: baseline; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.term-en { font-size: 15px; font-weight: 600; min-width: 42%; }
+.term-ja { font-size: 12.5px; color: var(--text-2); flex: 1; }
+.term-say { border: none; background: none; color: var(--text-3); font-size: 15px; cursor: pointer; padding: 4px; }
+
+.listen-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.listen-main { flex: 1; min-width: 0; }
+.listen-track { font-size: 14.5px; font-weight: 600; }
+.listen-artist { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.listen-why { font-size: 11.5px; color: var(--text-3); margin-top: 5px; }
+.listen-links { display: flex; gap: 6px; }
+.ext {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--card-2); border: 1px solid var(--line);
+  color: var(--text-2); font-size: 11px; font-weight: 700;
+  text-decoration: none;
+}
+.ext:active { color: var(--text); }
+
+/* ===========================================================
+   タブ・カード
+   =========================================================== */
+.tabs {
+  display: flex; gap: 8px; padding: 16px 20px 4px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  border: 1px solid var(--line); background: var(--card);
+  color: var(--text-2); font-family: inherit; font-size: 13px; font-weight: 600;
+  padding: 9px 15px; border-radius: 999px; white-space: nowrap; cursor: pointer;
+}
+.tab.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+.cards { padding: 12px 20px 0; }
+
+.card {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 16px; margin-bottom: 12px;
+}
+.card-top { display: flex; align-items: flex-start; gap: 12px; }
+.card-en { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.card-ja { font-size: 13.5px; color: var(--text-2); margin-top: 4px; }
+.card-say {
+  margin-left: auto; flex-shrink: 0;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--card-2);
+  color: var(--text-2); font-size: 15px; cursor: pointer;
+}
+.card-say:active { background: var(--line); color: var(--text); }
+.card-say.playing { color: var(--gold); border-color: var(--gold); }
+
+.card-ex {
+  margin-top: 14px; padding: 12px 14px;
+  background: var(--bg-2); border-radius: 10px;
+  border-left: 2px solid var(--line);
+}
+.card-ex-en { font-size: 14.5px; line-height: 1.6; }
+.card-ex-ja { font-size: 12.5px; color: var(--text-2); margin-top: 6px; }
+.card-note { font-size: 12px; color: var(--text-3); margin-top: 12px; line-height: 1.65; }
+
+.card-meta { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.pill {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+  padding: 4px 9px; border-radius: 999px;
+  background: var(--card-2); color: var(--text-3); border: 1px solid var(--line);
+}
+.pill.lv1 { color: var(--ok); border-color: rgba(70,192,139,.35); }
+.pill.lv2 { color: var(--gold); border-color: rgba(224,179,60,.35); }
+.pill.lv3 { color: var(--text-3); }
+
+/* 縮約カードの矢印表示 */
+.red-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.red-full { font-size: 14px; color: var(--text-3); text-decoration: line-through; text-decoration-color: var(--text-3); }
+.red-arrow { color: var(--text-3); font-size: 13px; }
+.red-spoken { font-size: 21px; font-weight: 800; color: var(--teal); letter-spacing: -.01em; }
+.red-ja { font-size: 13px; color: var(--text-2); margin-top: 6px; }
+.tip { font-size: 12px; color: var(--text-3); margin-top: 12px; line-height: 1.65; padding-left: 12px; border-left: 2px solid var(--line); }
+
+/* 会話カード */
+.talk-line { display: flex; gap: 10px; margin-bottom: 12px; }
+.talk-who { flex-shrink: 0; width: 22px; font-size: 11px; font-weight: 800; color: var(--text-3); padding-top: 4px; }
+.talk-main { flex: 1; min-width: 0; }
+.talk-en { font-size: 16px; line-height: 1.55; }
+.talk-ja { font-size: 12.5px; color: var(--text-2); margin-top: 4px; }
+.talk-b .talk-en { color: var(--text-2); }
+
+/* ===========================================================
+   クイズ
+   =========================================================== */
+.qbar { flex: 1; height: 4px; background: var(--card); border-radius: 999px; overflow: hidden; }
+.qbar-fill { height: 100%; width: 0; background: var(--gold); transition: width .35s ease; }
+.qcount { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+.quiz-body { flex: 1; display: flex; flex-direction: column; padding: 28px 20px 40px; }
+
+.q-kind { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-3); font-weight: 700; }
+.q-text { font-size: 21px; line-height: 1.5; font-weight: 600; margin: 14px 0 6px; }
+.q-text.small { font-size: 17px; font-weight: 500; }
+.q-sub { font-size: 13px; color: var(--text-2); }
+
+.q-say {
+  align-self: flex-start; margin: 18px 0 4px;
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); background: var(--card);
+  color: var(--text); font-family: inherit; font-size: 14px; font-weight: 600;
+  padding: 11px 18px; border-radius: 999px; cursor: pointer;
+}
+.q-say:active { background: var(--card-2); }
+
+.q-choices { margin-top: auto; padding-top: 28px; display: grid; gap: 10px; }
+.q-choice {
+  width: 100%; text-align: left;
+  background: var(--card); border: 1.5px solid var(--line);
+  border-radius: 14px; padding: 16px 18px;
+  font-family: inherit; font-size: 15.5px; line-height: 1.5; color: var(--text);
+  cursor: pointer; transition: transform .1s, border-color .15s, background .15s;
+}
+.q-choice:active { transform: scale(.985); }
+.q-choice.ok  { border-color: var(--ok); background: rgba(70,192,139,.10); }
+.q-choice.ng  { border-color: var(--ng); background: rgba(224,96,95,.10); }
+.q-choice[disabled] { cursor: default; }
+.q-choice.dim { opacity: .45; }
+
+.q-note {
+  margin-top: 16px; padding: 14px 16px;
+  background: var(--bg-2); border-radius: 12px;
+  border-left: 2px solid var(--gold);
+  font-size: 13px; color: var(--text-2); line-height: 1.7;
+  animation: in .2s ease;
+}
+.q-note b { color: var(--text); }
+.q-next {
+  margin-top: 16px; width: 100%;
+  background: var(--text); color: var(--bg); border: none;
+  border-radius: 14px; padding: 17px; font-family: inherit;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+}
+.q-next:active { opacity: .85; }
+
+/* ===========================================================
+   結果
+   =========================================================== */
+#screen-result { justify-content: center; }
+.result-wrap { padding: 32px 24px; text-align: center; }
+.result-score { font-size: 68px; font-weight: 800; line-height: 1; letter-spacing: -.03em; }
+.result-score small { font-size: 26px; color: var(--text-3); font-weight: 600; }
+#r-title { font-size: 20px; margin: 14px 0 6px; font-weight: 700; }
+.r-xp { display: inline-block; font-size: 13px; font-weight: 700; color: var(--gold); border: 1px solid rgba(224,179,60,.4); padding: 6px 16px; border-radius: 999px; margin-bottom: 26px; }
+
+.r-review { text-align: left; margin-bottom: 28px; }
+.r-review h3 { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); margin: 0 0 10px; }
+.r-item { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+.r-item b { font-size: 15px; }
+.r-item small { display: block; color: var(--text-2); font-size: 12.5px; margin-top: 3px; }
+.r-say { margin-left: auto; flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--card-2); color: var(--text-2); cursor: pointer; }
+
+.r-btns { display: grid; gap: 10px; }
+.btn-primary {
+  background: var(--text); color: var(--bg); border: none;
+  border-radius: 14px; padding: 17px; font-family: inherit;
+  font-size: 16px; font-weight: 700; cursor: pointer;
+}
+.btn-primary:active { opacity: .85; }
+.btn-ghost {
+  background: none; border: 1px solid var(--line); color: var(--text-2);
+  border-radius: 14px; padding: 15px; font-family: inherit;
+  font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.btn-ghost.small { padding: 11px 20px; font-size: 13px; }
+.btn-ghost:active { background: var(--card); }
+
+/* ===========================================================
+   記録・About
+   =========================================================== */
+.stats-body { padding: 20px; }
+.stat-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; margin-bottom: 12px; }
+.stat-card h2 { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); margin: 0 0 14px; }
+.stat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; font-size: 14px; color: var(--text-2); }
+.stat-row b { font-size: 19px; color: var(--text); font-variant-numeric: tabular-nums; }
+.bar-mini { height: 5px; background: var(--bg-2); border-radius: 999px; overflow: hidden; margin-top: 6px; }
+.bar-mini i { display: block; height: 100%; background: var(--gold); }
+.weak { display: flex; align-items: baseline; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.weak b { font-size: 15px; }
+.weak span { font-size: 12.5px; color: var(--text-2); }
+.weak em { margin-left: auto; font-style: normal; font-size: 12px; color: var(--ng); font-weight: 700; }
+
+.about-body { padding: 20px; }
+.about-body h2 { font-size: 15px; margin: 26px 0 8px; font-weight: 700; }
+.about-body h2:first-child { margin-top: 4px; }
+.about-body p { font-size: 14px; line-height: 1.85; color: var(--text-2); margin: 0; }
+.about-body b { color: var(--text); }
+.about-body code { background: var(--card); padding: 2px 6px; border-radius: 5px; font-size: 13px; color: var(--teal); }
+
+.soon { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 40px; text-align: center; }
+.soon-ico { font-size: 56px; }
+.soon p { color: var(--text-2); font-size: 14px; line-height: 1.8; margin: 0; }
+
+/* ---------------- 画面が広いとき ---------------- */
+@media (min-width: 760px) {
+  .screen { align-items: center; }
+  .bar, .hero, .mode-grid, .timeline, .era-body, .cards, .tabs,
+  .quiz-body, .stats-body, .about-body, .lead, .sec-h, .home-foot, .pad {
+    width: 100%; max-width: 720px;
+  }
+  .bar { max-width: none; padding-left: max(16px, calc(50vw - 360px)); padding-right: max(16px, calc(50vw - 360px)); }
+  .mode-grid { grid-template-columns: repeat(3, 1fr); }
+  .hero-title { font-size: 52px; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ================= ホーム ================= -->
+  <section class="screen active" id="screen-home">
+    <div class="hero">
+      <div class="hero-tag">HIP HOP × ENGLISH</div>
+      <h1 class="hero-title">Bars &amp; Words</h1>
+      <p class="hero-sub">歌詞と歴史から、実際に使える英語へ</p>
+
+      <div class="rank-row">
+        <div class="rank-badge" id="rank-badge">Rookie</div>
+        <div class="rank-bar"><div class="rank-fill" id="rank-fill"></div></div>
+        <div class="rank-xp" id="rank-xp">0 XP</div>
+      </div>
+
+      <div class="hero-stats">
+        <div><b id="hs-streak">0</b><span>日連続</span></div>
+        <div><b id="hs-learned">0</b><span>項目</span></div>
+        <div><b id="hs-rate">—</b><span>正解率</span></div>
+      </div>
+    </div>
+
+    <nav class="mode-grid">
+      <button class="mode" data-go="history" style="--c:#E0B33C">
+        <span class="m-ico">📻</span>
+        <b>ヒストリー</b>
+        <small>10の時代を英語で読む</small>
+      </button>
+      <button class="mode" data-go="slang" style="--c:#D9564F">
+        <span class="m-ico">🔥</span>
+        <b>スラング</b>
+        <small>歌詞と会話で効く言葉</small>
+      </button>
+      <button class="mode" data-go="reduction" style="--c:#4FBFA8">
+        <span class="m-ico">🎚️</span>
+        <b>発音・縮約</b>
+        <small>gonna / tryna / 'em</small>
+      </button>
+      <button class="mode" data-go="talk" style="--c:#7E8CF0">
+        <span class="m-ico">💬</span>
+        <b>音楽を語る</b>
+        <small>そのまま使える会話</small>
+      </button>
+      <button class="mode" data-go="knowledge" style="--c:#B15FD6">
+        <span class="m-ico">🎯</span>
+        <b>知識クイズ</b>
+        <small>英語で出題される</small>
+      </button>
+      <button class="mode" data-go="toeic" style="--c:#5BA9CC">
+        <span class="m-ico">📘</span>
+        <b>TOEIC</b>
+        <small>Phase B で追加</small>
+      </button>
+    </nav>
+
+    <div class="home-foot">
+      <button class="link" data-go="stats">記録を見る</button>
+      <button class="link" data-go="about">このアプリについて</button>
+    </div>
+  </section>
+
+  <!-- ================= ヒストリー一覧 ================= -->
+  <section class="screen" id="screen-history">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>ヒストリー</h1>
+    </header>
+    <p class="lead">各時代の解説を<b>英語で読み、聞く</b>。日本語訳つき。読み終えると記録に残ります。</p>
+    <div class="timeline" id="timeline"></div>
+    <div class="pad"></div>
+  </section>
+
+  <!-- ================= ヒストリー詳細 ================= -->
+  <section class="screen" id="screen-era">
+    <header class="bar">
+      <button class="back" data-go="history">←</button>
+      <h1 id="era-h1">—</h1>
+      <button class="bar-btn" id="era-play">▶︎ 通しで聞く</button>
+    </header>
+    <div class="era-body" id="era-body"></div>
+  </section>
+
+  <!-- ================= スラング ================= -->
+  <section class="screen" id="screen-slang">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>スラング</h1>
+      <button class="bar-btn" data-quiz="slang">ためす</button>
+    </header>
+    <div class="tabs" id="slang-tabs"></div>
+    <div class="cards" id="slang-cards"></div>
+    <div class="pad"></div>
+  </section>
+
+  <!-- ================= 発音・縮約 ================= -->
+  <section class="screen" id="screen-reduction">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>発音・縮約</h1>
+      <button class="bar-btn" data-quiz="reduction">ためす</button>
+    </header>
+    <p class="lead">教科書に載らないのに、会話は<b>ほぼ全部これ</b>。ここを潰すと聞き取りが変わります。</p>
+    <div class="cards" id="reduction-cards"></div>
+    <h2 class="sec-h">音のつながり（リンキング）</h2>
+    <div class="cards" id="linking-cards"></div>
+    <div class="pad"></div>
+  </section>
+
+  <!-- ================= 音楽を語る ================= -->
+  <section class="screen" id="screen-talk">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>音楽を語る</h1>
+      <button class="bar-btn" data-quiz="talk">ためす</button>
+    </header>
+    <div class="tabs" id="talk-tabs"></div>
+    <div class="cards" id="talk-cards"></div>
+    <div class="pad"></div>
+  </section>
+
+  <!-- ================= クイズ ================= -->
+  <section class="screen" id="screen-quiz">
+    <header class="bar">
+      <button class="back" id="quiz-quit">やめる</button>
+      <div class="qbar"><div class="qbar-fill" id="qbar-fill"></div></div>
+      <div class="qcount"><span id="q-now">1</span>/<span id="q-total">10</span></div>
+    </header>
+    <div class="quiz-body" id="quiz-body"></div>
+  </section>
+
+  <!-- ================= 結果 ================= -->
+  <section class="screen" id="screen-result">
+    <div class="result-wrap">
+      <div class="result-score"><span id="r-score">0</span><small>/<span id="r-total">10</span></small></div>
+      <h1 id="r-title">—</h1>
+      <div class="r-xp" id="r-xp">+0 XP</div>
+      <div class="r-review" id="r-review"></div>
+      <div class="r-btns">
+        <button class="btn-primary" id="r-again">もう一度</button>
+        <button class="btn-ghost" data-go="home">ホームへ</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 記録 ================= -->
+  <section class="screen" id="screen-stats">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>記録</h1>
+    </header>
+    <div class="stats-body" id="stats-body"></div>
+    <div class="pad center">
+      <button class="btn-ghost small" id="btn-reset">記録をすべて消す</button>
+    </div>
+  </section>
+
+  <!-- ================= このアプリについて ================= -->
+  <section class="screen" id="screen-about">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>このアプリについて</h1>
+    </header>
+    <div class="about-body">
+      <h2>歌詞を載せていない理由</h2>
+      <p>歌詞は著作権で保護されているため、アプリ内に本文を置くことはできません。代わりに、
+         <b>歌詞に出てくる表現を単語・数語の単位で扱い、例文はすべて書き下ろし</b>ています。
+         原文を読みたいときは各曲の Genius リンクから飛んでください。</p>
+
+      <h2>曲は入っていません</h2>
+      <p>音源も同じ理由で埋め込めません。各時代の「聴く」ボタンは
+         Spotify / YouTube の検索を開きます。<b>横で流しながら読む</b>のが想定です。</p>
+
+      <h2>データはこの端末の中だけ</h2>
+      <p>学習記録はブラウザ内（localStorage）に保存され、外部には一切送信されません。
+         ログインも不要です。</p>
+
+      <h2>内容を足したいとき</h2>
+      <p><code>data/</code> の中の5ファイルを編集すれば増えます。
+         <code>slang.js</code> に語を1つ足せば、一覧にもクイズにも自動で出ます。</p>
+    </div>
+    <div class="pad"></div>
+  </section>
+
+  <!-- ================= 準備中 ================= -->
+  <section class="screen" id="screen-soon">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1 id="soon-h1">準備中</h1>
+    </header>
+    <div class="soon"><div class="soon-ico">🚧</div><p id="soon-p"></p></div>
+  </section>
+
+</div>
+
+<script>
+/* ===========================================================
+   ヒップホップ史データ
+   ・en は学習用の英文（中学英会話＋αで読める語彙に抑えてある）
+   ・ja は対訳。直訳ではなく自然な日本語
+   ・terms はその時代を語るのに要る英単語
+   ・listen は聴くための検索リンク（曲そのものは埋め込まない）
+   時代を足したいときは、この配列に同じ形で追加するだけ。
+   =========================================================== */
+
+const ERAS = [
+  /* ------------------------------------------------------- */
+  {
+    id: 'origins',
+    years: '1973–1979',
+    title: 'The Birth of Hip Hop',
+    titleJa: 'ヒップホップの誕生',
+    place: 'South Bronx, New York',
+    color: '#E8A33D',
+    en: [
+      "Hip hop started at a house party in the Bronx in 1973.",
+      "A DJ called Kool Herc noticed something. Dancers went wild during the drum break — the short part with no singing.",
+      "So he used two copies of the same record and played that break over and over. He called it the break beat.",
+      "The city was broke and burning. Music programs in schools were cut. Kids had turntables instead of instruments.",
+      "Four elements grew out of those parties: DJing, MCing, breaking, and graffiti.",
+      "Nobody was making money yet. It was block parties, parks, and stolen electricity from street lamps.",
+    ],
+    ja: [
+      "ヒップホップは1973年、ブロンクスのある家のパーティーから始まった。",
+      "Kool Herc というDJが気づいた。踊り手は「ブレイク」——歌の入らないドラムだけの短い部分——で一番盛り上がる。",
+      "そこで彼は同じレコードを2枚使い、その部分だけを繰り返した。これがブレイクビーツ。",
+      "当時の街は財政破綻し、火事が絶えなかった。学校の音楽の授業は打ち切られた。子どもたちは楽器の代わりにターンテーブルを持った。",
+      "パーティーから4つの要素が育った。DJ、MC、ブレイクダンス、グラフィティ。",
+      "まだ誰も稼いでいない。公園とブロックパーティー、電源は街灯から拝借していた。",
+    ],
+    figures: [
+      { name: 'DJ Kool Herc', role: 'The originator', note: 'ジャマイカ移民。ブレイクビーツの発明者' },
+      { name: 'Afrika Bambaataa', role: 'The organizer', note: 'ギャングを音楽に転向させた Zulu Nation の創設者' },
+      { name: 'Grandmaster Flash', role: 'The technician', note: 'スクラッチとミックスの技術を確立' },
+    ],
+    terms: [
+      { en: 'break', ja: 'ブレイク（歌のないドラムだけの部分）' },
+      { en: 'turntable', ja: 'ターンテーブル、レコードプレーヤー' },
+      { en: 'block party', ja: '通りを封鎖してやる近所のパーティー' },
+      { en: 'crate digging', ja: 'レコード箱を漁ってネタを探すこと' },
+      { en: 'the four elements', ja: '4大要素（DJ・MC・ダンス・グラフィティ）' },
+    ],
+    listen: [
+      { artist: 'The Incredible Bongo Band', track: 'Apache', year: 1973, why: '最も使われたブレイクの一つ' },
+      { artist: 'James Brown', track: 'Funky Drummer', year: 1970, why: 'サンプリング史上最多のドラム' },
+    ],
+  },
+
+  /* ------------------------------------------------------- */
+  {
+    id: 'oldschool',
+    years: '1979–1983',
+    title: 'Old School — Hip Hop on Record',
+    titleJa: 'オールドスクール ― レコードになった日',
+    place: 'New York / New Jersey',
+    color: '#D9564F',
+    en: [
+      "For six years hip hop lived only in parks and clubs. Then in 1979, a small label put it on vinyl.",
+      "'Rapper's Delight' was a hit. Suddenly the whole country heard this new sound.",
+      "Old school rhymes were simple and made to move a crowd: party, party, keep going.",
+      "Then in 1982 came a record that changed the subject. 'The Message' was about poverty and pressure in the city.",
+      "It proved rap could report on real life, not just keep a party going.",
+      "The look was leather, gold chains, and Adidas. The sound was drum machines.",
+    ],
+    ja: [
+      "6年間、ヒップホップは公園とクラブの中だけにあった。1979年、小さなレーベルがそれをレコードにした。",
+      "『Rapper's Delight』がヒット。国中が突然この新しい音を聴いた。",
+      "オールドスクールのライムは単純で、客を踊らせるためのものだった。パーティー、パーティー、止めるな。",
+      "そして1982年、話題を変える一枚が出る。『The Message』は都市の貧困と重圧を歌った。",
+      "ラップは盛り上げ役だけでなく、現実を報告できると証明した。",
+      "見た目はレザーと金のチェーンとアディダス。音はドラムマシン。",
+    ],
+    figures: [
+      { name: 'The Sugarhill Gang', role: 'First hit', note: '「Rapper\'s Delight」でラップを商業化' },
+      { name: 'Grandmaster Flash & The Furious Five', role: 'First social record', note: '「The Message」で社会を語った' },
+      { name: 'Kurtis Blow', role: 'First major deal', note: 'メジャー契約した最初のラッパー' },
+    ],
+    terms: [
+      { en: 'vinyl / record', ja: 'レコード盤' },
+      { en: 'label', ja: 'レコード会社、レーベル' },
+      { en: 'drum machine', ja: 'ドラムマシン（自動でリズムを鳴らす機械）' },
+      { en: 'rhyme', ja: '韻／韻を踏む' },
+      { en: 'crowd', ja: '観客、群衆' },
+    ],
+    listen: [
+      { artist: 'The Sugarhill Gang', track: "Rapper's Delight", year: 1979, why: '最初の大ヒット' },
+      { artist: 'Grandmaster Flash', track: 'The Message', year: 1982, why: '社会派ラップの原点' },
+    ],
+  },
+
+  /* ------------------------------------------------------- */
+  {
+    id: 'newschool',
+    years: '1983–1988',
+    title: 'New School — Harder and Louder',
+    titleJa: 'ニュースクール ― 硬く、大きく',
+    place: 'Queens, New York',
+    color: '#4C6FD4',
+    en: [
+      "A group from Queens stripped everything down. No disco band, just drums, guitar, and two loud voices.",
+      "Run-DMC wore what regular kids wore: black hats, Adidas with no laces, and jeans.",
+      "In 1986 they made a rock song with Aerosmith. It put rap on MTV and sold to white suburbs.",
+      "Def Jam, a label started in a college dorm room, became the center of it all.",
+      "Rappers stopped being party hosts and became artists with a point of view.",
+      "This is when hip hop stopped asking for permission.",
+    ],
+    ja: [
+      "クイーンズ出身のグループが、余計なものを全部削ぎ落とした。ディスコのバンドは無し。ドラムとギターと、大声のふたり。",
+      "Run-DMC は普通の若者と同じ格好をした。黒いハット、紐を抜いたアディダス、ジーンズ。",
+      "1986年、Aerosmith とロックをやった。ラップがMTVに乗り、白人郊外に売れた。",
+      "大学の寮の一室で始まったレーベル Def Jam が、その中心になった。",
+      "ラッパーはパーティーの司会をやめ、主張を持つ表現者になった。",
+      "ヒップホップが許可を求めるのをやめた時期である。",
+    ],
+    figures: [
+      { name: 'Run-DMC', role: 'The bridge', note: 'ロックと融合させ、MTVに乗せた' },
+      { name: 'LL Cool J', role: 'First solo star', note: 'Def Jam の看板。硬派もラブソングも' },
+      { name: 'Beastie Boys', role: 'Crossover', note: '白人3人組。パンクからの越境' },
+      { name: 'Rick Rubin', role: 'Producer', note: 'Def Jam 共同創設。音を削ぎ落とす手法' },
+    ],
+    terms: [
+      { en: 'sample', ja: 'サンプリング（既存の音を切り取って使う）' },
+      { en: 'crossover', ja: '別ジャンルの客層にも売れること' },
+      { en: 'mainstream', ja: '主流、一般層' },
+      { en: 'suburb', ja: '郊外' },
+      { en: 'point of view', ja: '視点、主張' },
+    ],
+    listen: [
+      { artist: 'Run-DMC', track: 'Walk This Way', year: 1986, why: 'ロックとの合流点' },
+      { artist: 'LL Cool J', track: 'I Need Love', year: 1987, why: '最初のラップ・ラブソング' },
+    ],
+  },
+
+  /* ------------------------------------------------------- */
+  {
+    id: 'golden',
+    years: '1988–1996',
+    title: 'The Golden Age',
+    titleJa: '黄金期',
+    place: 'New York',
+    color: '#E0B33C',
+    en: [
+      "Many people call this the best period in hip hop. New styles appeared almost every month.",
+      "Producers layered dozens of samples into one track. Sampling laws were still loose, so anything was possible.",
+      "Public Enemy made political noise. A Tribe Called Quest made jazz feel cool and calm.",
+      "Nas released 'Illmatic' at twenty-one. Many still call it the best rap album ever made.",
+      "Wu-Tang Clan came from Staten Island with nine members and kung fu movie samples.",
+      "Then lawsuits arrived. After 1991, clearing every sample got expensive, and the dense collage sound faded.",
+    ],
+    ja: [
+      "多くの人がこの時期を最高だと言う。新しいスタイルが毎月のように現れた。",
+      "プロデューサーは何十ものサンプルを一曲に重ねた。サンプリングの法規制がまだ緩く、何でもできた。",
+      "Public Enemy は政治的な騒音を鳴らし、A Tribe Called Quest はジャズを涼しく響かせた。",
+      "Nas は21歳で『Illmatic』を出した。今も史上最高のラップアルバムと呼ばれる。",
+      "Wu-Tang Clan はスタテンアイランドから9人で現れ、カンフー映画をサンプリングした。",
+      "そこへ訴訟が来る。1991年以降、サンプルの権利処理に金がかかるようになり、あの密な音は消えていった。",
+    ],
+    figures: [
+      { name: 'Nas', role: 'The writer', note: '『Illmatic』。街の描写の精度' },
+      { name: 'The Notorious B.I.G.', role: 'The storyteller', note: 'ブルックリン。語り口とフロウ' },
+      { name: 'Wu-Tang Clan', role: 'The collective', note: '9人組。RZAの荒いプロダクション' },
+      { name: 'A Tribe Called Quest', role: 'Jazz rap', note: 'ジャズをネタにした涼しい音' },
+      { name: 'Public Enemy', role: 'The political', note: 'Chuck D の声と密なノイズ' },
+    ],
+    terms: [
+      { en: 'sample clearance', ja: 'サンプルの権利処理' },
+      { en: 'producer', ja: 'トラックを作る人' },
+      { en: 'lyricist', ja: '歌詞の書き手' },
+      { en: 'boom bap', ja: 'ブーンバップ（太いキックとスネアの90s的な音）' },
+      { en: 'crew / collective', ja: '集団、チーム' },
+      { en: 'lawsuit', ja: '訴訟' },
+    ],
+    listen: [
+      { artist: 'Nas', track: 'N.Y. State of Mind', year: 1994, why: '黄金期の代表曲' },
+      { artist: 'A Tribe Called Quest', track: 'Can I Kick It?', year: 1990, why: 'ジャズラップの入口' },
+      { artist: 'Wu-Tang Clan', track: 'C.R.E.A.M.', year: 1993, why: '荒い音の象徴' },
+    ],
+  },
+
+  /* ------------------------------------------------------- */
+  {
+    id: 'westcoast',
+    years: '1988–1996',
+    title: 'West Coast & G-Funk',
+    titleJa: 'ウェストコーストとGファンク',
+    place: 'Los Angeles / Compton',
+    color: '#3FA97A',
+    en: [
+      "While New York got dense and fast, Los Angeles went slow, warm, and wide.",
+      "N.W.A. reported what happened in Compton. The FBI sent their label a warning letter.",
+      "Dr. Dre then built G-funk: slow tempo, thick bass, and a high whining synth line borrowed from 1970s funk.",
+      "It was made for driving with the windows down, and it sold enormously.",
+      "The East–West rivalry became personal and then deadly. Both Tupac and Biggie were shot and killed.",
+      "After 1997, the fighting stopped being entertainment. The industry changed for good.",
+    ],
+    ja: [
+      "ニューヨークが密で速くなる一方、ロサンゼルスは遅く、温かく、広くなった。",
+      "N.W.A. はコンプトンで起きていることを報告した。FBIがレーベルに警告書を送った。",
+      "その後 Dr. Dre がGファンクを組み立てる。遅いテンポ、太いベース、70年代ファンク由来の高く鳴くシンセ。",
+      "窓を開けて運転するための音楽で、桁違いに売れた。",
+      "東西の対立は私怨になり、やがて死者を出す。Tupac と Biggie が銃撃で死亡した。",
+      "1997年以降、対立は娯楽ではなくなった。業界は決定的に変わった。",
+    ],
+    figures: [
+      { name: 'N.W.A.', role: 'The reporters', note: 'Compton から。検閲との衝突' },
+      { name: 'Dr. Dre', role: 'The architect', note: 'G-funk の設計者。後にEminem, 50 Centを発掘' },
+      { name: '2Pac', role: 'The voice', note: '政治性と感情。俳優としても' },
+      { name: 'Snoop Dogg', role: 'The flow', note: '力を抜いた独特のフロウ' },
+    ],
+    terms: [
+      { en: 'synth', ja: 'シンセサイザー' },
+      { en: 'bass line', ja: 'ベースの旋律' },
+      { en: 'tempo', ja: '曲の速さ' },
+      { en: 'rivalry / beef', ja: '対立、いさかい（beefは口語）' },
+      { en: 'censorship', ja: '検閲' },
+      { en: 'lowrider', ja: '車高を下げた改造車。西海岸の象徴' },
+    ],
+    listen: [
+      { artist: 'Dr. Dre', track: 'Nuthin but a G Thang', year: 1992, why: 'G-funkの完成形' },
+      { artist: '2Pac', track: 'Dear Mama', year: 1995, why: '感情表現の代表' },
+    ],
+  },
+
+  /* ------------------------------------------------------- */
+  {
+    id: 'south',
+    years: '1994–2005',
+    title: 'The South Takes Over',
+    titleJa: '南部の台頭',
+    place: 'Atlanta / New Orleans / Houston / Memphis',
+    color: '#B15FD6',
+    en: [
+      "For years, New York and LA acted like the South did not count.",
+      "In 1995 OutKast won a New York award and got booed. On stage, André 3000 said the South had something to say.",
+      "He was right. Within ten years, Atlanta was the center of rap.",
+      "Every southern city built its own sound. Houston slowed songs down. Memphis went dark and rough. New Orleans went fast.",
+      "Labels like No Limit and Cash Money sold millions without help from New York.",
+      "This is where trap music was born, and trap still shapes pop music worldwide today.",
+    ],
+    ja: [
+      "長年、ニューヨークとLAは南部を数に入れていなかった。",
+      "1995年、OutKast がニューヨークの授賞式でブーイングを浴びる。壇上で André 3000 は「南部には言うことがある」と言った。",
+      "彼は正しかった。10年のうちにアトランタがラップの中心になる。",
+      "南部の各都市が独自の音を作った。ヒューストンは曲を遅くし、メンフィスは暗く粗く、ニューオーリンズは速くした。",
+      "No Limit や Cash Money といったレーベルが、ニューヨークの手を借りずに何百万枚も売った。",
+      "トラップが生まれたのもここで、トラップは今も世界のポップスを形作っている。",
+    ],
+    figures: [
+      { name: 'OutKast', role: 'The pioneers', note: 'アトランタ。南部の格を上げた' },
+      { name: 'UGK / DJ Screw', role: 'Houston', note: '曲を極端に遅くする "chopped and screwed"' },
+      { name: 'Three 6 Mafia', role: 'Memphis', note: '暗く粗い音。トラップの祖先' },
+      { name: 'Lil Wayne', role: 'New Orleans', note: 'Cash Money。比喩の密度' },
+    ],
+    terms: [
+      { en: 'boo (someone)', ja: 'ブーイングする' },
+      { en: 'take over', ja: '主導権を握る、乗っ取る' },
+      { en: 'count / not count', ja: '数に入る／入らない、重要とみなす' },
+      { en: 'chopped and screwed', ja: '曲を極端に遅くして刻む手法' },
+      { en: 'independent label', ja: '大手に属さないレーベル' },
+    ],
+    listen: [
+      { artist: 'OutKast', track: 'Ms. Jackson', year: 2000, why: '南部が世界に届いた曲' },
+      { artist: 'Three 6 Mafia', track: 'Sippin on Some Syrup', year: 2000, why: 'トラップ以前の暗い音' },
+    ],
+  },
+
+  /* ------------------------------------------------------- */
+  {
+    id: 'mainstream',
+    years: '1999–2009',
+    title: 'Pop Takeover & the Backpack Reply',
+    titleJa: 'ポップ化と、それへの反論',
+    place: 'Detroit / Chicago / New York',
+    color: '#5BA9CC',
+    en: [
+      "Rap became the best-selling music in America. That brought money and a problem: it had to sound like pop.",
+      "Eminem sold more records than anyone, partly because a white rapper reached listeners who never bought rap before.",
+      "50 Cent turned the mixtape into a weapon and became a business.",
+      "Kanye West arrived as a producer who wanted to rap about being insecure, not being tough.",
+      "Around him, 'backpack rap' pushed back against the pop sound with samples and long verses.",
+      "Meanwhile the internet was quietly taking record sales apart.",
+    ],
+    ja: [
+      "ラップはアメリカで最も売れる音楽になった。金が入り、同時に問題も来た。ポップに聞こえねばならない。",
+      "Eminem は誰より売った。白人ラッパーが、ラップを買ったことのない層に届いたことも大きい。",
+      "50 Cent はミックステープを武器に変え、ビジネスそのものになった。",
+      "Kanye West はプロデューサーとして現れ、強がりではなく弱さをラップしたがった。",
+      "その周辺で「バックパック・ラップ」が、サンプリングと長いヴァースでポップ化に抵抗した。",
+      "その裏で、インターネットが静かにレコードの売上を解体していた。",
+    ],
+    figures: [
+      { name: 'Eminem', role: 'The technician', note: '韻の密度と語数。Dr. Dre が見出した' },
+      { name: 'Kanye West', role: 'The shift', note: 'プロデューサー出身。テーマを内面へ' },
+      { name: '50 Cent', role: 'The businessman', note: 'ミックステープ戦略の完成' },
+      { name: 'Jay-Z', role: 'The executive', note: 'ラッパーから経営者へ' },
+    ],
+    terms: [
+      { en: 'mixtape', ja: '正規流通させない無料の作品集' },
+      { en: 'verse', ja: 'ヴァース（サビ以外の歌のパート）' },
+      { en: 'hook / chorus', ja: 'サビ' },
+      { en: 'insecure', ja: '自信がない、不安な' },
+      { en: 'push back (against)', ja: '抵抗する、反発する' },
+      { en: 'record sales', ja: 'レコード（音源）の売上' },
+    ],
+    listen: [
+      { artist: 'Kanye West', track: 'Through the Wire', year: 2003, why: 'サンプリング回帰の象徴' },
+      { artist: 'Eminem', track: 'Lose Yourself', year: 2002, why: '技術と物語' },
+    ],
+  },
+
+  /* ------------------------------------------------------- */
+  {
+    id: 'trap',
+    years: '2010–2020',
+    title: 'The Trap Era',
+    titleJa: 'トラップの時代',
+    place: 'Atlanta',
+    color: '#D64F7A',
+    en: [
+      "Trap took over everything: rap, pop, K-pop, and adverts.",
+      "The recipe is simple to hear. Booming 808 bass, fast rattling hi-hats, and dark synth chords.",
+      "Rappers started using Auto-Tune as an instrument, not a repair tool. Melody and rap mixed together.",
+      "Streaming changed the rules again. An album could be twenty tracks long because every play counted.",
+      "SoundCloud let anyone release music with no label at all.",
+      "Some people said rap stopped being about words. Others said the voice had simply become another instrument.",
+    ],
+    ja: [
+      "トラップが全部を飲み込んだ。ラップも、ポップも、K-POPも、CMも。",
+      "作り方は聴けば分かる。轟く808のベース、細かく刻むハイハット、暗いシンセの和音。",
+      "ラッパーは Auto-Tune を修正道具ではなく楽器として使い始めた。メロディとラップが混ざった。",
+      "ストリーミングがまたルールを変えた。再生回数が全てなので、アルバムは20曲入りになった。",
+      "SoundCloud は、レーベル無しで誰でも発表できるようにした。",
+      "ラップは言葉のものではなくなったと言う人もいた。声がただの楽器になっただけだと言う人もいた。",
+    ],
+    figures: [
+      { name: 'Future', role: 'The mood', note: 'Auto-Tuneで感情を歪ませる手法' },
+      { name: 'Migos', role: 'The flow', note: '三連のフロウを一般化させた' },
+      { name: 'Kendrick Lamar', role: 'The counterweight', note: '構成と主題で評価された例外的存在' },
+      { name: 'Metro Boomin', role: 'The producer', note: 'トラップの音を定義した一人' },
+    ],
+    terms: [
+      { en: '808', ja: '808（太く長く鳴る低音。ドラムマシンの名前から）' },
+      { en: 'hi-hat', ja: 'ハイハット（シャカシャカ鳴るシンバル）' },
+      { en: 'Auto-Tune', ja: '音程を補正するソフト。効果として使う' },
+      { en: 'streaming', ja: 'ストリーミング配信' },
+      { en: 'take over', ja: '席巻する' },
+      { en: 'count (v.)', ja: '数に入る、意味を持つ' },
+    ],
+    listen: [
+      { artist: 'Migos', track: 'Bad and Boujee', year: 2016, why: '三連フロウの代表' },
+      { artist: 'Kendrick Lamar', track: 'HUMBLE.', year: 2017, why: 'トラップ期の批評性' },
+    ],
+  },
+
+  /* ------------------------------------------------------- */
+  {
+    id: 'global',
+    years: '2012–now',
+    title: 'Drill, UK and the Global Map',
+    titleJa: 'ドリルとUK、そして世界地図',
+    place: 'Chicago → London → Lagos → everywhere',
+    color: '#7E8CF0',
+    en: [
+      "Drill started in Chicago around 2012: slow, cold, and blunt.",
+      "London took it and changed the drums, making them slide and skip. UK drill became its own thing.",
+      "British rap already had grime, which is faster and shouted, built on London pirate radio.",
+      "At the same time, Afrobeats from Nigeria and Ghana went worldwide, and rappers started borrowing its rhythm.",
+      "Today the map has no center. Paris, Lagos, Seoul, Tokyo and São Paulo all have their own scenes.",
+      "For a learner, this is useful: you can now hear many English accents inside one genre.",
+    ],
+    ja: [
+      "ドリルは2012年頃シカゴで始まった。遅く、冷たく、そっけない。",
+      "ロンドンがそれを受け取ってドラムを変え、滑って跳ねるリズムにした。UKドリルは別物になった。",
+      "英国にはもともとグライムがあった。速く、怒鳴るように吐く、海賊ラジオ発の音楽だ。",
+      "同じ頃、ナイジェリアとガーナのアフロビーツが世界に出て、ラッパーがそのリズムを借り始めた。",
+      "今や地図に中心はない。パリ、ラゴス、ソウル、東京、サンパウロにそれぞれの現場がある。",
+      "学習者には好都合だ。ひとつのジャンルの中で、多くの英語の訛りが聴けるようになった。",
+    ],
+    figures: [
+      { name: 'Chief Keef', role: 'Chicago drill', note: 'ドリルの起点' },
+      { name: 'Central Cee', role: 'UK drill', note: 'ロンドン。英国英語のリスニング教材として優秀' },
+      { name: 'Stormzy', role: 'Grime', note: '英国の主流に届いたグライム' },
+      { name: 'Burna Boy', role: 'Afrobeats', note: 'ナイジェリア。世界的な広がりの中心' },
+    ],
+    terms: [
+      { en: 'blunt', ja: 'そっけない、率直な' },
+      { en: 'accent', ja: '訛り、アクセント' },
+      { en: 'scene', ja: 'シーン、その土地の音楽界隈' },
+      { en: 'pirate radio', ja: '無許可のラジオ局' },
+      { en: 'borrow', ja: '借りる、取り入れる' },
+      { en: 'worldwide', ja: '世界中に' },
+    ],
+    listen: [
+      { artist: 'Central Cee', track: 'Doja', year: 2022, why: 'UK英語のリスニングに' },
+      { artist: 'Burna Boy', track: 'Last Last', year: 2022, why: 'アフロビーツの入口' },
+    ],
+  },
+
+  /* ------------------------------------------------------- */
+  {
+    id: 'offshoots',
+    years: 'parallel',
+    title: 'The Offshoots — Soul, Jazz and R&B',
+    titleJa: '派生 ― ソウル、ジャズ、R&B',
+    place: 'everywhere',
+    color: '#4FBFA8',
+    en: [
+      "Hip hop never grew alone. It took from soul and jazz, and then gave something back.",
+      "Neo-soul in the 1990s used live musicians and hip hop drums at the same time.",
+      "Jazz rap did the opposite: rappers over upright bass and horns.",
+      "In the 2010s, artists stopped choosing. One album could be rap, soul, funk and gospel at once.",
+      "For listening practice these styles are the easiest place to start. The tempo is slower and the words are clearer.",
+      "If fast rap is hard to follow, begin here and work backwards.",
+    ],
+    ja: [
+      "ヒップホップは単独で育っていない。ソウルとジャズから取り、そして返した。",
+      "90年代のネオソウルは、生演奏とヒップホップのドラムを同時に使った。",
+      "ジャズラップは逆をやった。ウッドベースとホーンの上でラップする。",
+      "2010年代には、もう選ばなくなった。一枚の中でラップもソウルもファンクもゴスペルも鳴る。",
+      "リスニング練習にはこの層が一番入りやすい。テンポが遅く、言葉がはっきりしている。",
+      "速いラップが追えないなら、ここから始めて遡るとよい。",
+    ],
+    figures: [
+      { name: "D'Angelo", role: 'Neo-soul', note: '生演奏とヒップホップの間' },
+      { name: 'Erykah Badu', role: 'Neo-soul', note: '発音が明瞭で聴き取りやすい' },
+      { name: 'Anderson .Paak', role: 'Modern fusion', note: 'ドラムを叩きながら歌う' },
+      { name: 'A Tribe Called Quest', role: 'Jazz rap', note: 'ジャズラップの基準点' },
+    ],
+    terms: [
+      { en: 'live musicians', ja: '生演奏の演奏者' },
+      { en: 'horn', ja: '管楽器' },
+      { en: 'upright bass', ja: 'ウッドベース' },
+      { en: 'work backwards', ja: '遡って辿る' },
+      { en: 'follow (a song)', ja: '（歌詞を）追う、聞き取る' },
+    ],
+    listen: [
+      { artist: 'Erykah Badu', track: 'On & On', year: 1997, why: '発音が明瞭で聴きやすい' },
+      { artist: 'Anderson .Paak', track: 'Come Down', year: 2016, why: '現代の融合形' },
+    ],
+  },
+];
+</script>
+<script>
+/* ===========================================================
+   スラング・口語表現
+   en      : 見出し語
+   ja      : 意味
+   cat     : core / money / people / action / convo / music
+   level   : 1=まず覚える  2=次に覚える  3=知っていれば十分
+   ex/exJa : 会話で使える例文（歌詞の引用ではなく書き下ろし）
+   note    : 語源・使う場面・注意
+   ※ 相手を貶す語・人種に関わる語は、学習者が使うべきでないため収録しない
+   =========================================================== */
+
+const SLANG = [
+  /* ---------- core：評価する言葉 ---------- */
+  { en: 'dope', ja: 'かっこいい、最高', cat: 'core', level: 1, era: '80s–',
+    ex: "That new album is dope.", exJa: "あの新譜、最高だよ。",
+    note: '80年代からずっと使われる定番。goodより熱がある' },
+  { en: 'fire', ja: 'めちゃくちゃ良い', cat: 'core', level: 1, era: '2010s–',
+    ex: "This track is fire.", exJa: "この曲、めちゃくちゃいい。",
+    note: '現在の最頻出。🔥の絵文字だけで通じることも' },
+  { en: 'hard', ja: '硬派でかっこいい', cat: 'core', level: 1, era: '2000s–',
+    ex: "That beat goes hard.", exJa: "あのビート、効くわ。",
+    note: 'goes hard の形で使うことが多い。「難しい」の意味ではない' },
+  { en: 'sick', ja: 'やばい（褒め言葉）', cat: 'core', level: 1, era: '90s–',
+    ex: "His flow is sick.", exJa: "あいつのフロウ、やばい。",
+    note: '「病気」ではなく最上級の褒め言葉' },
+  { en: 'a banger', ja: '盛り上がる名曲', cat: 'core', level: 1, era: '2000s–',
+    ex: "This is a banger.", exJa: "これは盛り上がるやつだ。",
+    note: '名詞。パーティー向けの曲に使う' },
+  { en: 'a classic', ja: '定番の名作', cat: 'core', level: 1, era: 'always',
+    ex: "That album is a classic.", exJa: "あのアルバムは名盤だよ。",
+    note: '時間に耐えたものにだけ使う。新譜には使わない' },
+  { en: 'whack', ja: 'ダサい、しょうもない', cat: 'core', level: 2, era: '80s–90s',
+    ex: "That verse was whack.", exJa: "あのヴァースはひどかった。",
+    note: '古い言い方。今使うとレトロに聞こえる' },
+  { en: 'mid', ja: '普通、可もなく不可もなく', cat: 'core', level: 1, era: '2020s',
+    ex: "Honestly, the album was mid.", exJa: "正直、あのアルバムは普通だった。",
+    note: '一番新しい否定表現。褒めていない' },
+  { en: 'trash', ja: 'ひどい、話にならない', cat: 'core', level: 2, era: '2010s–',
+    ex: "I thought it was trash, but it grew on me.", exJa: "最初はひどいと思ったけど、だんだん好きになった。",
+    note: 'かなり強い否定。人には使わない方がいい' },
+  { en: 'underrated', ja: '過小評価されている', cat: 'core', level: 2, era: 'always',
+    ex: "He's the most underrated rapper alive.", exJa: "今生きてる中で一番過小評価されてるラッパーだ。",
+    note: '音楽の話で最も使う語のひとつ。反対は overrated' },
+  { en: 'overrated', ja: '過大評価されている', cat: 'core', level: 2, era: 'always',
+    ex: "That album is overrated.", exJa: "あのアルバムは持ち上げられすぎ。",
+    note: '議論を始めたいときに便利' },
+  { en: 'slaps', ja: '（曲が）効く、いい', cat: 'core', level: 2, era: '2010s–',
+    ex: "This song slaps.", exJa: "この曲めっちゃいい。",
+    note: '動詞。主語は曲。人には使わない' },
+
+  /* ---------- music：音楽を語る言葉 ---------- */
+  { en: 'flow', ja: 'フロウ（言葉のリズムと乗せ方）', cat: 'music', level: 1, era: 'always',
+    ex: "She's got a smooth flow.", exJa: "彼女のフロウは滑らかだ。",
+    note: '最重要語。声質でも歌詞でもなく「リズムの乗り方」' },
+  { en: 'bars', ja: '歌詞、ラップの内容', cat: 'music', level: 1, era: 'always',
+    ex: "Those bars are insane.", exJa: "あの歌詞、とんでもない。",
+    note: '本来は小節の意味。「歌詞の質」を指す' },
+  { en: 'a verse', ja: 'ヴァース（サビ以外の本編）', cat: 'music', level: 1, era: 'always',
+    ex: "His verse is the best part.", exJa: "彼のヴァースが一番いい。",
+    note: '' },
+  { en: 'a hook', ja: 'サビ、耳に残る繰り返し', cat: 'music', level: 1, era: 'always',
+    ex: "The hook is stuck in my head.", exJa: "サビが頭から離れない。",
+    note: 'chorus とほぼ同義。hookの方が口語的' },
+  { en: 'a beat', ja: 'トラック、伴奏', cat: 'music', level: 1, era: 'always',
+    ex: "Who produced this beat?", exJa: "このトラック、誰が作ったの？",
+    note: '' },
+  { en: 'to sample', ja: 'サンプリングする', cat: 'music', level: 1, era: 'always',
+    ex: "He sampled an old soul record.", exJa: "彼は古いソウルのレコードをサンプリングした。",
+    note: '' },
+  { en: 'a feature (feat.)', ja: '客演、ゲスト参加', cat: 'music', level: 2, era: 'always',
+    ex: "The feature saved the song.", exJa: "客演がこの曲を救った。",
+    note: '動詞なら featuring。曲名の feat. はこれ' },
+  { en: 'to freestyle', ja: 'その場で即興でラップする', cat: 'music', level: 2, era: 'always',
+    ex: "Can you freestyle?", exJa: "フリースタイルできる？",
+    note: '' },
+  { en: 'a mixtape', ja: 'ミックステープ（非公式の作品集）', cat: 'music', level: 2, era: '90s–',
+    ex: "His mixtape is better than his album.", exJa: "彼はアルバムよりミックステープの方がいい。",
+    note: '' },
+  { en: 'to drop (an album)', ja: '（作品を）出す、リリースする', cat: 'music', level: 1, era: 'always',
+    ex: "He dropped a new album last night.", exJa: "彼、昨夜新譜を出したよ。",
+    note: 'release より断然よく使う' },
+  { en: 'a deep cut', ja: 'シングルではない隠れた良曲', cat: 'music', level: 3, era: 'always',
+    ex: "That's a deep cut, not many people know it.", exJa: "あれは隠れた名曲で、知ってる人は少ない。",
+    note: '通ぶれる言い方' },
+  { en: 'to go platinum', ja: '100万枚売れる', cat: 'music', level: 3, era: 'always',
+    ex: "The album went platinum in a week.", exJa: "そのアルバムは1週間で100万枚売れた。",
+    note: 'gold は50万枚' },
+
+  /* ---------- people：人を指す言葉 ---------- */
+  { en: 'homie', ja: '仲間、親しい友達', cat: 'people', level: 1, era: '90s–',
+    ex: "That's my homie from high school.", exJa: "高校からの親友だよ。",
+    note: '男女どちらにも使える。西海岸発' },
+  { en: 'fam', ja: '身内、めちゃくちゃ親しい相手', cat: 'people', level: 1, era: '2010s–',
+    ex: "You good, fam?", exJa: "大丈夫か？",
+    note: 'family の略。呼びかけに使う' },
+  { en: 'a crew', ja: 'チーム、仲間の集団', cat: 'people', level: 1, era: '80s–',
+    ex: "He came up with his whole crew.", exJa: "彼は仲間全員と一緒に成り上がった。",
+    note: '' },
+  { en: 'an OG', ja: '古参、本物の先輩', cat: 'people', level: 1, era: '90s–',
+    ex: "He's an OG in this scene.", exJa: "彼はこの界隈の古株だよ。",
+    note: 'original gangster の略。今は「元祖・ベテラン」の意味で広く使う' },
+  { en: 'an MC', ja: 'ラッパー（司会の意もある）', cat: 'people', level: 1, era: 'always',
+    ex: "Who's your favorite MC?", exJa: "好きなラッパーは誰？",
+    note: 'master of ceremonies。rapper より敬意がある' },
+  { en: 'a hater', ja: '何でも否定してくる人', cat: 'people', level: 2, era: '2000s–',
+    ex: "Ignore the haters.", exJa: "アンチは気にするな。",
+    note: '' },
+  { en: 'a legend', ja: '伝説的な人', cat: 'people', level: 1, era: 'always',
+    ex: "He's a legend, no question.", exJa: "彼は文句なしにレジェンドだ。",
+    note: '' },
+  { en: 'the GOAT', ja: '史上最高の人', cat: 'people', level: 1, era: '2000s–',
+    ex: "For me, he's the GOAT.", exJa: "俺にとっては彼が史上最高だ。",
+    note: 'Greatest Of All Time の略。ヤギの絵文字🐐で表すことも' },
+
+  /* ---------- money：金・成功の言葉 ---------- */
+  { en: 'to hustle', ja: '必死に稼ぐ、動き回る', cat: 'money', level: 1, era: 'always',
+    ex: "He hustled for years before it worked.", exJa: "うまくいくまで何年も必死に働いた。",
+    note: '一般のビジネス英語にも完全に定着した語' },
+  { en: 'the grind', ja: '地道な努力の日々', cat: 'money', level: 1, era: '2000s–',
+    ex: "Back to the grind on Monday.", exJa: "月曜からまた仕事だ。",
+    note: '仕事の話で普通に使える。愚痴にも決意にも' },
+  { en: 'to come up', ja: '成り上がる、這い上がる', cat: 'money', level: 2, era: 'always',
+    ex: "He came up from nothing.", exJa: "彼はゼロから成り上がった。",
+    note: '名詞なら a come-up' },
+  { en: 'to make it', ja: '成功する', cat: 'money', level: 1, era: 'always',
+    ex: "It took him ten years to make it.", exJa: "成功するのに10年かかった。",
+    note: '汎用性が非常に高い。ビジネスでも使う' },
+  { en: 'bread / bag', ja: '金', cat: 'money', level: 2, era: '2010s–',
+    ex: "He's getting the bag now.", exJa: "あいつ今めちゃくちゃ稼いでるよ。",
+    note: '「get the bag」で稼ぐの意。money の言い換えは大量にある' },
+  { en: 'to be broke', ja: '金がない', cat: 'money', level: 1, era: 'always',
+    ex: "I was broke back then.", exJa: "あの頃は金がなかった。",
+    note: 'poor より一時的で軽い。日常会話で頻出' },
+  { en: 'to flex', ja: '見せびらかす', cat: 'money', level: 2, era: '2010s–',
+    ex: "He's just flexing.", exJa: "あいつ見栄張ってるだけだよ。",
+    note: '筋肉に力を入れる動作から。皮肉で使うことが多い' },
+  { en: 'a whip', ja: '車', cat: 'money', level: 2, era: '90s–',
+    ex: "Nice whip.", exJa: "いい車だな。",
+    note: '' },
+  { en: 'a crib', ja: '家', cat: 'money', level: 2, era: '90s–',
+    ex: "Come through to my crib.", exJa: "うち来いよ。",
+    note: '本来は赤ちゃんのベッド' },
+
+  /* ---------- action：動きを表す言葉 ---------- */
+  { en: 'to be from the block', ja: '地元育ちである', cat: 'action', level: 3, era: 'always',
+    ex: "He never forgot where he's from.", exJa: "彼は出身を忘れなかった。",
+    note: 'block は「街区」。ヒップホップで最重要の概念のひとつ' },
+  { en: 'to keep it real', ja: '嘘をつかない、自分を偽らない', cat: 'action', level: 1, era: '90s–',
+    ex: "I respect him because he keeps it real.", exJa: "嘘をつかないから彼を尊敬してる。",
+    note: 'ヒップホップの中心的な価値観' },
+  { en: 'to sell out', ja: '金のために信念を捨てる', cat: 'action', level: 2, era: 'always',
+    ex: "Fans said he sold out.", exJa: "ファンは彼が魂を売ったと言った。",
+    note: '「完売する」の意味もあるので文脈で判断' },
+  { en: 'to have beef (with)', ja: '（人と）もめている', cat: 'action', level: 2, era: '90s–',
+    ex: "They had beef for years.", exJa: "あの二人は何年ももめてた。",
+    note: '牛肉ではない。squash the beef で「手打ちにする」' },
+  { en: 'to diss', ja: 'けなす、攻撃する', cat: 'action', level: 2, era: '80s–',
+    ex: "That song was a diss.", exJa: "あの曲は攻撃だった。",
+    note: 'disrespect の略。a diss track = 攻撃用の曲' },
+  { en: 'to shout out', ja: '名前を出して称える', cat: 'action', level: 2, era: 'always',
+    ex: "Shout out to my parents.", exJa: "両親に感謝を。",
+    note: '名詞なら a shoutout。SNSでも常用' },
+  { en: 'to vibe (with)', ja: '波長が合う、いい感じでいる', cat: 'action', level: 1, era: '2010s–',
+    ex: "I'm just vibing to this album.", exJa: "このアルバム、ただ気持ちよく聴いてる。",
+    note: '名詞の a vibe（雰囲気）も超頻出' },
+  { en: 'to grow on someone', ja: 'だんだん好きになる', cat: 'action', level: 1, era: 'always',
+    ex: "It grew on me after a few listens.", exJa: "何回か聴いたら好きになった。",
+    note: '音楽の話で一番役に立つ表現のひとつ' },
+  { en: 'to be into (something)', ja: '～にハマっている', cat: 'action', level: 1, era: 'always',
+    ex: "I'm really into 90s hip hop.", exJa: "90年代のヒップホップにハマってる。",
+    note: '趣味の話の必須表現' },
+  { en: 'to sleep on', ja: '良さに気づかず見過ごす', cat: 'action', level: 2, era: '2000s–',
+    ex: "Don't sleep on this album.", exJa: "このアルバム、見逃すなよ。",
+    note: '「寝る」ではない。Don\'t sleep on ～ の形で覚える' },
+
+  /* ---------- convo：会話の相槌・つなぎ ---------- */
+  { en: 'real talk', ja: '本音を言うとさ', cat: 'convo', level: 1, era: '2000s–',
+    ex: "Real talk, that was his worst album.", exJa: "正直言うと、あれは彼の最低作だった。",
+    note: '文頭に置く。honestly とほぼ同じ働き' },
+  { en: 'no cap', ja: '嘘じゃなく、マジで', cat: 'convo', level: 1, era: '2010s–',
+    ex: "That show was the best I've seen, no cap.", exJa: "あのライブは今まで見た中で最高、マジで。",
+    note: 'cap = 嘘。文末に置くことが多い' },
+  { en: 'facts', ja: 'それな、その通り', cat: 'convo', level: 1, era: '2010s–',
+    ex: "— He's underrated.  — Facts.", exJa: "「彼は過小評価されてる」「それな」",
+    note: '一語で同意を示す相槌' },
+  { en: 'bet', ja: '了解、いいよ', cat: 'convo', level: 1, era: '2010s–',
+    ex: "— See you at eight.  — Bet.", exJa: "「8時にね」「了解」",
+    note: '賭けではない。OKの現代版' },
+  { en: 'word', ja: 'マジで／だよな', cat: 'convo', level: 2, era: '80s–',
+    ex: "— I waited two hours.  — Word?", exJa: "「2時間待ったよ」「マジで？」",
+    note: '相槌にも疑問にもなる。イントネーション次第' },
+  { en: 'my bad', ja: 'ごめん、私のミスだ', cat: 'convo', level: 1, era: '90s–',
+    ex: "My bad, I forgot to text you.", exJa: "ごめん、連絡するの忘れてた。",
+    note: '軽い謝罪。sorry より気楽' },
+  { en: 'deadass', ja: '本気で、マジで', cat: 'convo', level: 2, era: '2010s–',
+    ex: "I'm deadass tired.", exJa: "マジで疲れてる。",
+    note: 'ニューヨーク発。地域色が強い' },
+  { en: 'straight up', ja: '率直に言って', cat: 'convo', level: 2, era: '90s–',
+    ex: "Straight up, I don't like that song.", exJa: "はっきり言って、その曲は好きじゃない。",
+    note: '' },
+  { en: "I'm not gonna lie", ja: '正直に言うとさ', cat: 'convo', level: 1, era: 'always',
+    ex: "Not gonna lie, I skipped that track.", exJa: "正直、その曲は飛ばした。",
+    note: '会話の切り出しで極めて頻出。NGL と略される' },
+  { en: 'you feel me?', ja: '分かる？伝わってる？', cat: 'convo', level: 1, era: '90s–',
+    ex: "It's about the mood, you feel me?", exJa: "雰囲気の問題なんだよ、分かる？",
+    note: '同意を求める。you know what I mean? と同じ働き' },
+  { en: 'for real', ja: 'マジで', cat: 'convo', level: 1, era: 'always',
+    ex: "For real, you should listen to it.", exJa: "マジで、聴いた方がいい。",
+    note: 'FR と略される。for real? なら「本当に？」' },
+  { en: 'lowkey / highkey', ja: 'ちょっと／かなり', cat: 'convo', level: 2, era: '2010s–',
+    ex: "I lowkey like that song.", exJa: "あの曲、実はちょっと好き。",
+    note: 'lowkey は「あまり大声で言わないけど」の含み' },
+];
+
+const SLANG_CATS = {
+  core:   { ja: 'ほめる・けなす', emoji: '🔥' },
+  music:  { ja: '音楽を語る',     emoji: '🎧' },
+  people: { ja: '人を指す',       emoji: '👥' },
+  money:  { ja: '金と成功',       emoji: '💵' },
+  action: { ja: '動き・態度',     emoji: '⚡' },
+  convo:  { ja: '相槌・つなぎ',   emoji: '💬' },
+};
+</script>
+<script>
+/* ===========================================================
+   発音の縮約（reductions）
+   ラップと日常会話で最も差が出る部分。教科書には載らないが、
+   ネイティブの会話はほぼ全部これで喋られている。
+   full   : 教科書の形
+   spoken : 実際に聞こえる形
+   ex/exJa: 縮約した状態の例文
+   tip    : 聞き取りのコツ
+   =========================================================== */
+
+const REDUCTIONS = [
+  /* ---- 最重要（これだけで聞き取りが変わる） ---- */
+  { full: 'going to',   spoken: 'gonna',  ja: '～するつもり', level: 1,
+    ex: "I'm gonna listen to that album tonight.", exJa: "今夜あのアルバムを聴くつもり。",
+    tip: '「ガナ」ではなく「ガナ」の a が極端に弱い。ほぼ「ガヌ」' },
+  { full: 'want to',    spoken: 'wanna',  ja: '～したい', level: 1,
+    ex: "Do you wanna hear it?", exJa: "聴いてみる？",
+    tip: 'Do you wanna は「ジュワナ」と1語に潰れる' },
+  { full: 'got to / have to', spoken: 'gotta', ja: '～しなきゃ', level: 1,
+    ex: "I gotta go.", exJa: "もう行かなきゃ。",
+    tip: 'tt はアメリカ英語で「ラ行」に化ける。「ガラ」に近い' },
+  { full: 'trying to',  spoken: 'tryna',  ja: '～しようとしてる', level: 1,
+    ex: "I'm tryna learn English.", exJa: "英語を身につけようとしてる。",
+    tip: 'ラップ頻出。trying to の g も t も消える' },
+  { full: 'about to',   spoken: 'boutta / finna', ja: '今まさに～するところ', level: 1,
+    ex: "I'm boutta head out.", exJa: "今から出るところ。",
+    tip: 'finna は南部発。about to より口語的' },
+  { full: "I'm going to", spoken: 'imma', ja: '～するわ', level: 1,
+    ex: "Imma call you later.", exJa: "あとで電話するわ。",
+    tip: '3語が1音節に潰れる。ラップで最頻出のひとつ' },
+  { full: 'them',       spoken: "'em",   ja: 'それら、彼ら', level: 1,
+    ex: "I told 'em already.", exJa: "もう言ってあるよ。",
+    tip: 'th が完全に消える。tell them →「テラム」' },
+  { full: 'is not / are not / am not / has not', spoken: "ain't", ja: '～じゃない', level: 1,
+    ex: "That ain't my style.", exJa: "それは俺の趣味じゃない。",
+    tip: '否定形を全部これ1つで済ませる。正式な場では使わない' },
+  { full: 'you all',    spoken: "y'all", ja: 'みんな（複数のyou）', level: 1,
+    ex: "Y'all should check this out.", exJa: "みんなこれ聴いた方がいいよ。",
+    tip: '南部発だが今や全米で通用する' },
+  { full: 'because',    spoken: "'cause / cuz", ja: 'なぜなら', level: 1,
+    ex: "I like it cuz the beat is clean.", exJa: "ビートがきれいだから好き。",
+    tip: '最初の音節が丸ごと消える' },
+
+  /* ---- よく出る ---- */
+  { full: 'let me',     spoken: 'lemme',  ja: '～させて', level: 2,
+    ex: "Lemme hear that again.", exJa: "もう一回聴かせて。",
+    tip: 't が消えて m に吸収される' },
+  { full: 'give me',    spoken: 'gimme',  ja: 'ちょうだい', level: 2,
+    ex: "Gimme a second.", exJa: "ちょっと待って。",
+    tip: 'v が消える' },
+  { full: 'out of',     spoken: 'outta',  ja: '～から外へ', level: 2,
+    ex: "He came outta nowhere.", exJa: "彼はどこからともなく現れた。",
+    tip: 'out of nowhere はそのまま覚えると便利' },
+  { full: 'kind of',    spoken: 'kinda',  ja: 'ちょっと、なんか', level: 2,
+    ex: "It's kinda slow for me.", exJa: "俺にはちょっと遅いかな。",
+    tip: '断定を避けるクッション。使えると自然になる' },
+  { full: 'sort of',    spoken: 'sorta',  ja: 'ある意味、まあ', level: 2,
+    ex: "Sorta, but not really.", exJa: "まあ、そうでもないかな。",
+    tip: 'kinda とほぼ同じ' },
+  { full: "don't know", spoken: 'dunno',  ja: '分からない', level: 2,
+    ex: "I dunno, maybe.", exJa: "分かんない、たぶん。",
+    tip: 'I dunno は「アイダノ」' },
+  { full: 'what are you', spoken: 'whatcha', ja: '何を～してるの', level: 2,
+    ex: "Whatcha listening to?", exJa: "何聴いてるの？",
+    tip: 't + y が「チャ」に化ける（同化）' },
+  { full: 'got you',    spoken: 'gotcha',  ja: '了解、任せろ', level: 2,
+    ex: "Gotcha, no problem.", exJa: "了解、大丈夫だよ。",
+    tip: '同じく t + y →「チャ」' },
+  { full: 'did you',    spoken: 'didja / dija', ja: '～した？', level: 2,
+    ex: "Didja see the show?", exJa: "あのライブ観た？",
+    tip: 'd + y が「ジャ」に化ける' },
+  { full: 'would have / could have / should have',
+    spoken: "woulda / coulda / shoulda", ja: '～すればよかった', level: 2,
+    ex: "You shoulda been there.", exJa: "君も来ればよかったのに。",
+    tip: 'have が完全に消える。of と書く人もいるが誤り' },
+
+  /* ---- 知っていると得 ---- */
+  { full: 'a lot of',   spoken: 'lotta',  ja: 'たくさんの', level: 3,
+    ex: "He put in a lotta work.", exJa: "彼はかなり努力した。",
+    tip: '' },
+  { full: 'come on',    spoken: 'c\'mon', ja: 'おいおい、来いよ', level: 2,
+    ex: "C'mon, you know that's not true.", exJa: "おいおい、それは違うだろ。",
+    tip: '状況で「急げ」「まさか」「頑張れ」すべてになる' },
+  { full: 'what is up', spoken: "what's up / wassup / sup", ja: 'よお、調子どう', level: 1,
+    ex: "Sup, man.", exJa: "よお。",
+    tip: '短くなるほどカジュアル。sup は仲間内だけ' },
+  { full: 'I do not care', spoken: "I don't even care", ja: 'どうでもいい', level: 3,
+    ex: "I don't even care what people say.", exJa: "何て言われようがどうでもいい。",
+    tip: 'even を挟むと自然になる' },
+  { full: 'probably',   spoken: 'prolly', ja: 'たぶん', level: 3,
+    ex: "Prolly his best work.", exJa: "たぶん彼の最高傑作。",
+    tip: 'b が消える' },
+  { full: 'supposed to', spoken: "s'posta", ja: '～するはずだった', level: 3,
+    ex: "It was supposed to drop last year.", exJa: "去年出るはずだった。",
+    tip: 'd が消えて ta になる' },
+  { full: 'because of',  spoken: "cuza",   ja: '～のせいで', level: 3,
+    ex: "Cuza him, I started listening to jazz.", exJa: "彼のおかげでジャズを聴き始めた。",
+    tip: '' },
+  { full: 'in the',      spoken: "in'a",   ja: '～の中で', level: 3,
+    ex: "Back in the day, we bought CDs.", exJa: "昔はCDを買ってた。",
+    tip: 'back in the day（昔は）は丸ごと覚える' },
+];
+
+/* リンキング（音のつながり）— 単語単位では聞こえない現象 */
+const LINKING = [
+  { pattern: 'an album', sounds: 'a-nal-bum', ja: '子音＋母音はつながる', level: 1 },
+  { pattern: 'check it out', sounds: 'che-ki-tout', ja: '3語が1語に聞こえる', level: 1 },
+  { pattern: 'turn it up', sounds: 'tur-ni-tup', ja: '同上。頻出フレーズ', level: 1 },
+  { pattern: 'what I mean', sounds: 'wha-dai-meen', ja: 't が d 化してつながる', level: 2 },
+  { pattern: 'a lot of it', sounds: 'a-lo-da-vit', ja: 't → d、of → uv', level: 2 },
+  { pattern: 'hold on', sounds: 'hol-don', ja: 'd が次に移る', level: 1 },
+  { pattern: 'first of all', sounds: 'fir-stu-vall', ja: '会話の切り出しで頻出', level: 2 },
+  { pattern: 'one of the best', sounds: 'wu-nuv-the-best', ja: '音楽の話で常用', level: 1 },
+];
+</script>
+<script>
+/* ===========================================================
+   音楽を語るための英会話
+   場面ごとの実用フレーズ。すべて書き下ろしで、歌詞の引用ではない。
+   scene : 場面
+   en/ja : フレーズと訳
+   reply : 想定される返し（会話として練習できるように）
+   =========================================================== */
+
+const TALK = [
+  /* ---------- 好みを聞く・言う ---------- */
+  { scene: 'ask', sceneJa: '好みを聞く', en: "Who's your favorite MC?", ja: "好きなラッパーは誰？",
+    reply: "Hard to pick just one, but probably Nas.", replyJa: "一人に絞るのは難しいけど、たぶんNasかな。" },
+  { scene: 'ask', sceneJa: '好みを聞く', en: "What are you into these days?", ja: "最近は何にハマってる？",
+    reply: "Mostly 90s stuff lately.", replyJa: "最近はだいたい90年代のやつだね。" },
+  { scene: 'ask', sceneJa: '好みを聞く', en: "Have you heard the new album?", ja: "新しいアルバム聴いた？",
+    reply: "Not yet. Is it any good?", replyJa: "まだ。良かった？" },
+  { scene: 'ask', sceneJa: '好みを聞く', en: "What got you into hip hop?", ja: "何がきっかけでヒップホップを聴くようになったの？",
+    reply: "My older brother played it all the time.", replyJa: "兄がずっとかけてたんだ。" },
+  { scene: 'ask', sceneJa: '好みを聞く', en: "Where should I start with him?", ja: "彼のどれから聴けばいい？",
+    reply: "Start with his second album. It's the most accessible.", replyJa: "2枚目からがいいよ。一番とっつきやすい。" },
+
+  /* ---------- 感想を言う ---------- */
+  { scene: 'react', sceneJa: '感想を言う', en: "That beat goes hard.", ja: "あのビート、効くわ。",
+    reply: "Right? The bass is insane.", replyJa: "だよね？ベースがやばい。" },
+  { scene: 'react', sceneJa: '感想を言う', en: "It didn't click at first, but it grew on me.", ja: "最初はピンとこなかったけど、だんだん好きになった。",
+    reply: "Same. It takes a few listens.", replyJa: "同じ。何回か聴かないとね。" },
+  { scene: 'react', sceneJa: '感想を言う', en: "Honestly, I think it's overrated.", ja: "正直、持ち上げられすぎだと思う。",
+    reply: "I get that, but the production is still great.", replyJa: "分かるよ、でもトラックは今でも素晴らしい。" },
+  { scene: 'react', sceneJa: '感想を言う', en: "This one hits different at night.", ja: "これ、夜に聴くと全然違う。",
+    reply: "Facts. It's a late-night album.", replyJa: "それな。夜向けのアルバムだよ。" },
+  { scene: 'react', sceneJa: '感想を言う', en: "The hook is stuck in my head.", ja: "サビが頭から離れない。",
+    reply: "Same, I've had it on repeat all week.", replyJa: "同じ、今週ずっとリピートしてる。" },
+  { scene: 'react', sceneJa: '感想を言う', en: "His flow on that verse is crazy.", ja: "あのヴァースのフロウ、とんでもない。",
+    reply: "He doesn't even take a breath.", replyJa: "息継ぎすらしてないよね。" },
+
+  /* ---------- 勧める ---------- */
+  { scene: 'recommend', sceneJa: '勧める', en: "You should check this out.", ja: "これ聴いてみなよ。",
+    reply: "Send it to me.", replyJa: "送っといて。" },
+  { scene: 'recommend', sceneJa: '勧める', en: "Don't sleep on this album.", ja: "このアルバム、見逃すなよ。",
+    reply: "I've been meaning to listen to it.", replyJa: "聴こうと思ってはいたんだ。" },
+  { scene: 'recommend', sceneJa: '勧める', en: "If you like that, you'll love this.", ja: "それが好きなら、これは絶対好きだよ。",
+    reply: "Alright, I trust you.", replyJa: "分かった、信じるよ。" },
+  { scene: 'recommend', sceneJa: '勧める', en: "It's a deep cut, but it's my favorite.", ja: "隠れた曲だけど、一番好きなんだ。",
+    reply: "Never heard of it. Play it.", replyJa: "知らない。かけてよ。" },
+
+  /* ---------- 議論する ---------- */
+  { scene: 'debate', sceneJa: '議論する', en: "He's the most underrated rapper alive.", ja: "今生きてる中で一番過小評価されてる。",
+    reply: "I'd argue he's just consistent, not underrated.", replyJa: "過小評価というより、単に安定してるだけだと思うな。" },
+  { scene: 'debate', sceneJa: '議論する', en: "For me, it's still his best work.", ja: "俺にとっては今でも彼の最高傑作だ。",
+    reply: "See, I'd go with the first one.", replyJa: "いや、俺なら1枚目を選ぶな。" },
+  { scene: 'debate', sceneJa: '議論する', en: "I see what you mean, but I don't agree.", ja: "言いたいことは分かる、でも同意はしない。",
+    reply: "Fair enough.", replyJa: "まあ、それもそうだね。" },
+  { scene: 'debate', sceneJa: '議論する', en: "That's a hot take.", ja: "それは思い切った意見だな。",
+    reply: "I'll die on this hill.", replyJa: "この意見は譲らないよ。" },
+  { scene: 'debate', sceneJa: '議論する', en: "Who's the GOAT, in your opinion?", ja: "君の意見では、史上最高は誰？",
+    reply: "Depends on what you mean by greatest.", replyJa: "「最高」の定義によるね。" },
+
+  /* ---------- ライブ・現場 ---------- */
+  { scene: 'live', sceneJa: 'ライブの話', en: "Are you going to the show?", ja: "ライブ行く？",
+    reply: "I couldn't get tickets. They sold out in minutes.", replyJa: "チケット取れなかった。数分で完売だった。" },
+  { scene: 'live', sceneJa: 'ライブの話', en: "The crowd went crazy.", ja: "客がめちゃくちゃ盛り上がった。",
+    reply: "I bet. That song always does it.", replyJa: "だろうね。あの曲はいつもそうなる。" },
+  { scene: 'live', sceneJa: 'ライブの話', en: "He sounds even better live.", ja: "ライブだともっといい。",
+    reply: "That's rare these days.", replyJa: "最近だと珍しいよね。" },
+  { scene: 'live', sceneJa: 'ライブの話', en: "Turn it up.", ja: "音量上げて。",
+    reply: "Say less.", replyJa: "言わなくても分かってる。" },
+
+  /* ---------- 自分のことを話す ---------- */
+  { scene: 'self', sceneJa: '自分の話', en: "I'm still learning English, so bear with me.", ja: "まだ英語を勉強中だから、大目に見てね。",
+    reply: "You're doing great, take your time.", replyJa: "上手だよ、ゆっくりでいい。" },
+  { scene: 'self', sceneJa: '自分の話', en: "I use music to practice listening.", ja: "リスニングの練習に音楽を使ってる。",
+    reply: "That's actually the best way.", replyJa: "実際それが一番いい方法だよ。" },
+  { scene: 'self', sceneJa: '自分の話', en: "Could you say that again, slower?", ja: "もう一回、ゆっくり言ってもらえる？",
+    reply: "Of course. No rush.", replyJa: "もちろん。急がなくていいよ。" },
+  { scene: 'self', sceneJa: '自分の話', en: "What does that mean?", ja: "それどういう意味？",
+    reply: "It just means 'really good'.", replyJa: "「すごくいい」って意味だよ。" },
+  { scene: 'self', sceneJa: '自分の話', en: "I couldn't catch that.", ja: "聞き取れなかった。",
+    reply: "My bad, I talk too fast.", replyJa: "ごめん、早口すぎたね。" },
+];
+
+const TALK_SCENES = {
+  ask:       { ja: '好みを聞く',   emoji: '❓' },
+  react:     { ja: '感想を言う',   emoji: '💭' },
+  recommend: { ja: '勧める',       emoji: '👉' },
+  debate:    { ja: '議論する',     emoji: '⚖️' },
+  live:      { ja: 'ライブの話',   emoji: '🎤' },
+  self:      { ja: '自分の話',     emoji: '🙋' },
+};
+</script>
+<script>
+/* ===========================================================
+   知識クイズ（英語で出題 → 読解の練習も兼ねる）
+   q      : 英語の問題文
+   qJa    : 日本語訳（答えたあとに表示）
+   choices: 選択肢
+   answer : 正解の index
+   note   : 解説（日本語）
+   era    : 関連する時代 id（history.js の id と対応）
+   =========================================================== */
+
+const QUIZ = [
+  { q: "In which New York borough did hip hop begin?",
+    qJa: "ヒップホップはニューヨークのどの区で始まった？",
+    choices: ["Brooklyn", "The Bronx", "Queens", "Harlem"], answer: 1, era: 'origins',
+    note: "1973年、サウスブロンクスのアパートのレクリエーションルームが最初の現場。borough は「区」" },
+
+  { q: "What did DJ Kool Herc extend by using two copies of the same record?",
+    qJa: "Kool Herc が同じレコード2枚を使って引き伸ばしたものは？",
+    choices: ["The chorus", "The intro", "The drum break", "The guitar solo"], answer: 2, era: 'origins',
+    note: "歌の入らないドラムだけの部分＝break。これがヒップホップの土台になった" },
+
+  { q: "Which of these is NOT one of the four elements of hip hop?",
+    qJa: "ヒップホップの4大要素でないものは？",
+    choices: ["DJing", "Breaking", "Producing", "Graffiti"], answer: 2, era: 'origins',
+    note: "4要素は DJ・MC・ブレイキン（ダンス）・グラフィティ" },
+
+  { q: "The 1982 song 'The Message' was important because it was about ___.",
+    qJa: "1982年の『The Message』が重要だった理由は、それが何について歌ったから？",
+    choices: ["Dancing all night", "Life and poverty in the city", "Love", "Cars"], answer: 1, era: 'oldschool',
+    note: "パーティー音楽だったラップが、初めて社会を報告した瞬間" },
+
+  { q: "Run-DMC's 1986 collaboration with Aerosmith helped rap reach ___.",
+    qJa: "Run-DMC と Aerosmith の1986年の共演が、ラップを何に届けた？",
+    choices: ["Jazz clubs", "MTV and rock fans", "Classical radio", "Broadway"], answer: 1, era: 'newschool',
+    note: "「Walk This Way」。ラップがMTVに乗り、白人郊外の層に届いた転換点" },
+
+  { q: "Which album did Nas release at the age of 21?",
+    qJa: "Nas が21歳で発表したアルバムは？",
+    choices: ["Ready to Die", "Illmatic", "The Chronic", "Enter the Wu-Tang"], answer: 1, era: 'golden',
+    note: "1994年。史上最高のラップアルバムとしばしば呼ばれる" },
+
+  { q: "What made the dense sampling of the Golden Age fade after 1991?",
+    qJa: "黄金期の密なサンプリングが1991年以降に消えた原因は？",
+    choices: ["Bad reviews", "Copyright lawsuits", "New dances", "Radio bans"], answer: 1, era: 'golden',
+    note: "訴訟でサンプルの権利処理が必要になり、費用が跳ね上がった" },
+
+  { q: "'Boom bap' describes a sound built mainly on ___.",
+    qJa: "「ブーンバップ」が指す音の中心は？",
+    choices: ["Fast hi-hats", "Hard drums and samples", "Auto-Tune vocals", "Electric guitar"], answer: 1, era: 'golden',
+    note: "太いキックとスネアの90年代的な質感。名前は音の擬音から" },
+
+  { q: "Dr. Dre's G-funk style is known for ___.",
+    qJa: "Dr. Dre の G-funk の特徴は？",
+    choices: ["Slow tempo and high synth lines", "Shouted vocals", "Acoustic guitars", "Very fast drums"], answer: 0, era: 'westcoast',
+    note: "遅いテンポ、太いベース、高く鳴くシンセ。70年代ファンクが原料" },
+
+  { q: "At the 1995 Source Awards, André 3000 famously said that ___ had something to say.",
+    qJa: "1995年の授賞式で André 3000 が「言うことがある」と言ったのは誰について？",
+    choices: ["The East Coast", "The South", "The West Coast", "The UK"], answer: 1, era: 'south',
+    note: "ブーイングを浴びた壇上での一言。南部台頭の号砲になった" },
+
+  { q: "'Chopped and screwed' means the track is ___.",
+    qJa: "「chopped and screwed」とは曲をどうすること？",
+    choices: ["Sped up", "Slowed down and cut up", "Played backwards", "Recorded live"], answer: 1, era: 'south',
+    note: "ヒューストンの DJ Screw が生んだ手法。極端に遅くして刻む" },
+
+  { q: "Which city is most associated with trap music?",
+    qJa: "トラップと最も結びつきの強い都市は？",
+    choices: ["Atlanta", "Detroit", "Philadelphia", "Miami"], answer: 0, era: 'trap',
+    note: "アトランタ。2010年代に世界のポップスの標準になった" },
+
+  { q: "In trap, the '808' refers to ___.",
+    qJa: "トラップにおける「808」とは？",
+    choices: ["A tempo", "A deep bass sound", "A studio", "A year"], answer: 1, era: 'trap',
+    note: "Roland TR-808 というドラムマシン由来。長く伸びる低音を指す" },
+
+  { q: "Auto-Tune was originally made to ___.",
+    qJa: "Auto-Tune はもともと何のために作られた？",
+    choices: ["Add echo", "Correct pitch", "Slow down songs", "Remove noise"], answer: 1, era: 'trap',
+    note: "音程の修正ツール。それを効果として使ったのが表現になった" },
+
+  { q: "UK drill developed from Chicago drill by changing the ___.",
+    qJa: "UKドリルはシカゴのドリルの何を変えて生まれた？",
+    choices: ["Language", "Drum patterns", "Album covers", "Song length"], answer: 1, era: 'global',
+    note: "滑って跳ねるドラムに変えたことで別のジャンルになった" },
+
+  { q: "Grime came out of London's ___.",
+    qJa: "グライムはロンドンの何から生まれた？",
+    choices: ["Opera houses", "Pirate radio", "Jazz clubs", "Churches"], answer: 1, era: 'global',
+    note: "無許可のラジオ局。速く、怒鳴るように吐くスタイル" },
+
+  { q: "Afrobeats came mainly from ___.",
+    qJa: "アフロビーツは主にどこから来た？",
+    choices: ["Nigeria and Ghana", "Kenya", "South Africa", "Egypt"], answer: 0, era: 'global',
+    note: "2010年代後半から世界的に広がった" },
+
+  { q: "Which style is usually easiest for English learners to follow?",
+    qJa: "英語学習者が一番聞き取りやすいのは？",
+    choices: ["Fast drill", "Neo-soul", "Hardcore rap", "Grime"], answer: 1, era: 'offshoots',
+    note: "テンポが遅く発音が明瞭。ここから始めて遡るのが現実的" },
+
+  /* ---------- 語彙クイズ（英語の意味を問う） ---------- */
+  { q: "If someone says a song 'goes hard', they mean it is ___.",
+    qJa: "曲が goes hard とは、どういう意味？",
+    choices: ["Difficult to play", "Powerful and great", "Too loud", "Old"], answer: 1, era: null,
+    note: "hard は「難しい」ではなく「硬派でかっこいい」。goes hard で1つの塊" },
+
+  { q: "'Don't sleep on this album' means ___.",
+    qJa: "Don't sleep on this album の意味は？",
+    choices: ["Don't fall asleep", "Don't overlook it", "Don't buy it", "Don't play it at night"], answer: 1, era: null,
+    note: "sleep on ～ で「良さに気づかず見過ごす」。頻出表現" },
+
+  { q: "If a track 'grew on you', it means ___.",
+    qJa: "It grew on me の意味は？",
+    choices: ["You liked it immediately", "You came to like it over time", "You wrote it", "You forgot it"], answer: 1, era: null,
+    note: "音楽の感想で最も使える表現のひとつ" },
+
+  { q: "'No cap' means ___.",
+    qJa: "No cap の意味は？",
+    choices: ["No hat", "I'm not lying", "No limit", "Not finished"], answer: 1, era: null,
+    note: "cap = 嘘。文末につけて「マジで」" },
+
+  { q: "'My bad' is used to ___.",
+    qJa: "My bad はどんなときに使う？",
+    choices: ["Complain", "Apologize lightly", "Praise someone", "Say goodbye"], answer: 1, era: null,
+    note: "軽い謝罪。sorry より気楽で日常的" },
+
+  { q: "An 'OG' is someone who is ___.",
+    qJa: "OG とはどんな人？",
+    choices: ["New to the scene", "Experienced and respected", "Very rich", "A producer"], answer: 1, era: null,
+    note: "original gangster の略だが、今は「元祖・ベテラン」として広く使う" },
+
+  { q: "'The GOAT' stands for ___.",
+    qJa: "GOAT は何の略？",
+    choices: ["Greatest Of All Time", "Group Of Artists Together", "Good Old Alternative Track", "Get Off All Trends"], answer: 0, era: null,
+    note: "スポーツでも音楽でも使う。🐐 の絵文字で表すことも" },
+
+  { q: "If you're 'tryna' do something, you are ___.",
+    qJa: "tryna の意味は？",
+    choices: ["Tired of it", "Trying to do it", "Not doing it", "Finished with it"], answer: 1, era: null,
+    note: "trying to の縮約。ラップと日常会話の両方で頻出" },
+
+  { q: "'Imma' is short for ___.",
+    qJa: "Imma は何の短縮？",
+    choices: ["I am not", "I'm going to", "I made a", "I must"], answer: 1, era: null,
+    note: "I'm going to が1音節に潰れた形" },
+
+  { q: "In 'I told 'em already', 'em means ___.",
+    qJa: "'em は何を指す？",
+    choices: ["him", "them", "me", "us"], answer: 1, era: null,
+    note: "them の th が消えた形。会話ではほぼ常にこう発音される" },
+
+  { q: "If a rapper is 'underrated', people ___.",
+    qJa: "underrated とは？",
+    choices: ["Praise him too much", "Don't appreciate him enough", "Have never heard him", "Dislike him"], answer: 1, era: null,
+    note: "反対は overrated。音楽の議論で最も使う対の語" },
+
+  { q: "'Real talk' at the start of a sentence means ___.",
+    qJa: "文頭の Real talk はどういう合図？",
+    choices: ["I'm joking", "I'm being honest now", "Let's change topic", "I'm angry"], answer: 1, era: null,
+    note: "honestly と同じ働き。本音を切り出す合図" },
+
+  { q: "If someone replies 'Bet.', they are ___.",
+    qJa: "返事の Bet. はどういう意味？",
+    choices: ["Refusing", "Agreeing", "Asking a question", "Gambling"], answer: 1, era: null,
+    note: "OK の現代版。賭けの意味ではない" },
+];
+</script>
+<script>
+/* ===========================================================
+   Bars & Words — 本体
+   Phase A : ヒストリー / スラング / 発音・縮約 / 音楽を語る / 知識クイズ
+   保存先  : localStorage（この端末の中だけ。外部送信なし）
+   =========================================================== */
+
+'use strict';
+
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/* -----------------------------------------------------------
+   1. 保存
+   ----------------------------------------------------------- */
+const KEY = 'bars-and-words-v1';
+
+const Store = {
+  d: null,
+
+  load() {
+    try { this.d = JSON.parse(localStorage.getItem(KEY)) || null; }
+    catch (e) { this.d = null; }
+    if (!this.d) this.d = this.blank();
+    const b = this.blank();
+    for (const k in b) if (!(k in this.d)) this.d[k] = b[k];
+    return this.d;
+  },
+
+  blank() {
+    return {
+      xp: 0,
+      quiz: {},        // { 'slang:dope': {ok:2, ng:1} }
+      readEras: [],    // 読み終えた時代の id
+      answered: 0,
+      correct: 0,
+      streak: 0,
+      lastDay: '',
+      days: [],
+    };
+  },
+
+  save() { try { localStorage.setItem(KEY, JSON.stringify(this.d)); } catch (e) {} },
+
+  reset() { this.d = this.blank(); this.save(); },
+
+  touchToday() {
+    const t = ymd(new Date());
+    if (this.d.lastDay === t) return;
+    const y = ymd(new Date(Date.now() - 86400000));
+    this.d.streak = (this.d.lastDay === y) ? this.d.streak + 1 : 1;
+    this.d.lastDay = t;
+    if (!this.d.days.includes(t)) this.d.days.push(t);
+    this.save();
+  },
+
+  record(key, ok) {
+    const r = this.d.quiz[key] || (this.d.quiz[key] = { ok: 0, ng: 0 });
+    ok ? r.ok++ : r.ng++;
+    this.d.answered++;
+    if (ok) { this.d.correct++; this.d.xp += 10; }
+    this.save();
+  },
+
+  addXp(n) { this.d.xp += n; this.save(); },
+};
+
+function ymd(dt) {
+  const p = n => String(n).padStart(2, '0');
+  return `${dt.getFullYear()}-${p(dt.getMonth() + 1)}-${p(dt.getDate())}`;
+}
+
+/* -----------------------------------------------------------
+   2. ランク
+   ----------------------------------------------------------- */
+const RANKS = [
+  { at: 0,    name: 'Rookie',        ja: '入門' },
+  { at: 100,  name: 'Crate Digger',  ja: 'レコード漁り' },
+  { at: 300,  name: 'Selector',      ja: '選盤者' },
+  { at: 600,  name: 'Head',          ja: '通' },
+  { at: 1000, name: 'Scholar',       ja: '研究者' },
+  { at: 1800, name: 'OG',            ja: '古参' },
+  { at: 3000, name: 'GOAT',          ja: '史上最高' },
+];
+
+const Rank = {
+  now() {
+    const xp = Store.d.xp;
+    let cur = RANKS[0], next = null;
+    for (let i = 0; i < RANKS.length; i++) {
+      if (xp >= RANKS[i].at) { cur = RANKS[i]; next = RANKS[i + 1] || null; }
+    }
+    const span = next ? next.at - cur.at : 1;
+    const got  = next ? xp - cur.at : 1;
+    return { cur, next, pct: Math.min(100, got / span * 100), xp };
+  },
+};
+
+/* -----------------------------------------------------------
+   3. 読み上げ
+   ----------------------------------------------------------- */
+const Speech = {
+  voice: null,
+  ready: false,
+
+  init() {
+    if (!('speechSynthesis' in window)) return;
+    const pick = () => {
+      const vs = speechSynthesis.getVoices();
+      if (!vs.length) return;
+      const want = ['Samantha', 'Alex', 'Daniel', 'Karen',
+                    'Google US English', 'Microsoft Aria', 'Microsoft Zira'];
+      this.voice = vs.find(v => want.includes(v.name))
+                || vs.find(v => v.lang === 'en-US')
+                || vs.find(v => v.lang && v.lang.startsWith('en'))
+                || null;
+    };
+    pick();
+    speechSynthesis.onvoiceschanged = pick;
+
+    const unlock = () => {
+      if (this.ready) return;
+      try {
+        const u = new SpeechSynthesisUtterance(' ');
+        u.volume = 0;
+        speechSynthesis.speak(u);
+        this.ready = true;
+      } catch (e) {}
+    };
+    document.addEventListener('touchend', unlock);
+    document.addEventListener('click', unlock);
+  },
+
+  say(text, rate = 0.9, onend) {
+    if (!('speechSynthesis' in window)) { if (onend) onend(); return; }
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US';
+      u.rate = rate;
+      if (this.voice) u.voice = this.voice;
+      if (onend) u.onend = onend;
+      speechSynthesis.speak(u);
+    } catch (e) { if (onend) onend(); }
+  },
+
+  /* 複数の文を続けて読む */
+  chain(list, rate, done) {
+    let i = 0;
+    const next = () => {
+      if (i >= list.length) { if (done) done(); return; }
+      this.say(list[i++], rate, next);
+    };
+    next();
+  },
+
+  stop() { try { speechSynthesis.cancel(); } catch (e) {} },
+};
+
+/* 音声ボタンの共通処理（押した瞬間に光らせる） */
+function sayFrom(btn, text, rate) {
+  Speech.say(text, rate);
+  btn.classList.add('playing');
+  setTimeout(() => btn.classList.remove('playing'), 1200);
+}
+
+/* -----------------------------------------------------------
+   4. 画面切り替え
+   ----------------------------------------------------------- */
+const Nav = {
+  go(id) {
+    Speech.stop();
+    $$('.screen').forEach(s => s.classList.remove('active'));
+    const el = $('#screen-' + id);
+    if (!el) return;
+    el.classList.add('active');
+    el.scrollTop = 0;
+    ({
+      home:      () => Home.render(),
+      history:   () => History.render(),
+      slang:     () => Slang.render(),
+      reduction: () => Reduction.render(),
+      talk:      () => Talk.render(),
+      stats:     () => Stats.render(),
+    }[id] || (() => {}))();
+  },
+  soon(t, p) { $('#soon-h1').textContent = t; $('#soon-p').innerHTML = p; this.go('soon'); },
+};
+
+/* -----------------------------------------------------------
+   5. 便利関数
+   ----------------------------------------------------------- */
+const shuffle = a => {
+  const r = a.slice();
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [r[i], r[j]] = [r[j], r[i]];
+  }
+  return r;
+};
+const sample = (a, n) => shuffle(a).slice(0, n);
+
+/* 外部サービスの検索リンク */
+const links = {
+  spotify: q => 'https://open.spotify.com/search/' + encodeURIComponent(q),
+  youtube: q => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q),
+  genius:  q => 'https://genius.com/search?q=' + encodeURIComponent(q),
+};
+
+/* -----------------------------------------------------------
+   6. ホーム
+   ----------------------------------------------------------- */
+const Home = {
+  render() {
+    const r = Rank.now();
+    const d = Store.d;
+    $('#rank-badge').textContent = r.cur.name;
+    $('#rank-fill').style.width = r.pct + '%';
+    $('#rank-xp').textContent = r.next
+      ? `${d.xp} / ${r.next.at} XP`
+      : `${d.xp} XP`;
+
+    $('#hs-streak').textContent  = d.streak;
+    $('#hs-learned').textContent = Object.keys(d.quiz).length + d.readEras.length;
+    $('#hs-rate').textContent    = d.answered ? Math.round(d.correct / d.answered * 100) + '%' : '—';
+  },
+};
+
+/* -----------------------------------------------------------
+   7. ヒストリー
+   ----------------------------------------------------------- */
+const History = {
+  render() {
+    $('#timeline').innerHTML = ERAS.map(e => `
+      <button class="tl-item" data-era="${e.id}" style="--c:${e.color}">
+        ${Store.d.readEras.includes(e.id) ? '<span class="tl-done">✓ 読了</span>' : ''}
+        <div class="tl-years">${esc(e.years)}</div>
+        <div class="tl-title">${esc(e.title)}</div>
+        <div class="tl-ja">${esc(e.titleJa)}</div>
+        <div class="tl-place">${esc(e.place)}</div>
+      </button>`).join('');
+
+    $$('#timeline .tl-item').forEach(b => {
+      b.onclick = () => Era.open(b.dataset.era);
+    });
+  },
+};
+
+const Era = {
+  cur: null,
+
+  open(id) {
+    const e = ERAS.find(x => x.id === id);
+    if (!e) return;
+    this.cur = e;
+    $('#era-h1').textContent = e.years;
+
+    const done = Store.d.readEras.includes(e.id);
+
+    $('#era-body').innerHTML = `
+      <div class="era-head" style="--c:${e.color}">
+        <div class="era-years">${esc(e.years)} · ${esc(e.place)}</div>
+        <div class="era-title">${esc(e.title)}</div>
+        <div class="era-ja">${esc(e.titleJa)}</div>
+      </div>
+
+      <div class="era-sents" style="--c:${e.color}">
+        ${e.en.map((s, i) => `
+          <div class="sent" data-i="${i}">
+            <div class="sent-en">${esc(s)}</div>
+            <div class="sent-ja">${esc(e.ja[i] || '')}</div>
+            ${i === 0 ? '<div class="sent-hint">タップすると訳が出て、音声が流れます</div>' : ''}
+          </div>`).join('')}
+      </div>
+
+      <div class="era-sec" style="--c:${e.color}">
+        <h3>Key figures</h3>
+        ${e.figures.map(f => `
+          <div class="fig">
+            <div>
+              <div class="fig-name">${esc(f.name)}</div>
+              <div class="fig-role">${esc(f.role)}</div>
+              <div class="fig-note">${esc(f.note)}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+
+      <div class="era-sec">
+        <h3>この時代の言葉</h3>
+        ${e.terms.map(t => `
+          <div class="term">
+            <div class="term-en">${esc(t.en)}</div>
+            <div class="term-ja">${esc(t.ja)}</div>
+            <button class="term-say" data-say="${encodeURIComponent(t.en)}">🔊</button>
+          </div>`).join('')}
+      </div>
+
+      <div class="era-sec">
+        <h3>聴く（外部サイトが開きます）</h3>
+        ${e.listen.map(l => {
+          const q = `${l.artist} ${l.track}`;
+          return `
+          <div class="listen-item">
+            <div class="listen-main">
+              <div class="listen-track">${esc(l.track)} <span style="color:var(--text-3);font-size:12px">(${l.year})</span></div>
+              <div class="listen-artist">${esc(l.artist)}</div>
+              <div class="listen-why">${esc(l.why)}</div>
+            </div>
+            <div class="listen-links">
+              <a class="ext" href="${links.spotify(q)}" target="_blank" rel="noopener">SPO</a>
+              <a class="ext" href="${links.youtube(q)}" target="_blank" rel="noopener">YT</a>
+              <a class="ext" href="${links.genius(q)}"  target="_blank" rel="noopener">歌詞</a>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div class="pad center">
+        <button class="${done ? 'btn-ghost' : 'btn-primary'}" id="era-done" style="width:100%">
+          ${done ? '✓ 読了済み（もう一度読む）' : '読み終えた（+30 XP）'}
+        </button>
+      </div>`;
+
+    /* 文をタップ → 訳を出して読み上げ */
+    $$('#era-body .sent').forEach(el => {
+      el.onclick = () => {
+        el.classList.toggle('on');
+        if (el.classList.contains('on')) Speech.say(e.en[+el.dataset.i]);
+      };
+    });
+
+    $$('#era-body .term-say').forEach(b => {
+      b.onclick = ev => { ev.stopPropagation(); sayFrom(b, decodeURIComponent(b.dataset.say)); };
+    });
+
+    $('#era-done').onclick = () => {
+      if (!Store.d.readEras.includes(e.id)) {
+        Store.d.readEras.push(e.id);
+        Store.addXp(30);
+        Store.touchToday();
+      }
+      Nav.go('history');
+    };
+
+    Nav.go('era');
+  },
+
+  playAll() {
+    if (!this.cur) return;
+    Speech.chain(this.cur.en, 0.9);
+  },
+};
+
+/* -----------------------------------------------------------
+   8. スラング
+   ----------------------------------------------------------- */
+const Slang = {
+  cat: 'all',
+
+  render() {
+    const cats = Object.keys(SLANG_CATS);
+    $('#slang-tabs').innerHTML =
+      `<button class="tab ${this.cat === 'all' ? 'on' : ''}" data-c="all">すべて</button>` +
+      cats.map(c => `<button class="tab ${this.cat === c ? 'on' : ''}" data-c="${c}">${SLANG_CATS[c].emoji} ${SLANG_CATS[c].ja}</button>`).join('');
+
+    $$('#slang-tabs .tab').forEach(b => {
+      b.onclick = () => { this.cat = b.dataset.c; this.render(); };
+    });
+
+    const list = this.cat === 'all' ? SLANG : SLANG.filter(s => s.cat === this.cat);
+    $('#slang-cards').innerHTML = list.map(s => `
+      <div class="card">
+        <div class="card-top">
+          <div>
+            <div class="card-en">${esc(s.en)}</div>
+            <div class="card-ja">${esc(s.ja)}</div>
+          </div>
+          <button class="card-say" data-say="${encodeURIComponent(s.en)}">🔊</button>
+        </div>
+        <div class="card-ex">
+          <div class="card-ex-en">${esc(s.ex)}</div>
+          <div class="card-ex-ja">${esc(s.exJa)}</div>
+          <button class="card-say" style="width:34px;height:34px;font-size:13px;margin-top:10px"
+                  data-say="${encodeURIComponent(s.ex)}">🔊</button>
+        </div>
+        ${s.note ? `<div class="card-note">${esc(s.note)}</div>` : ''}
+        <div class="card-meta">
+          <span class="pill lv${s.level}">${['', 'まず覚える', '次に覚える', '知っていれば'][s.level]}</span>
+          <span class="pill">${esc(s.era)}</span>
+          <span class="pill">${SLANG_CATS[s.cat].ja}</span>
+        </div>
+      </div>`).join('');
+
+    bindSayButtons('#slang-cards');
+  },
+};
+
+/* -----------------------------------------------------------
+   9. 発音・縮約
+   ----------------------------------------------------------- */
+const Reduction = {
+  render() {
+    $('#reduction-cards').innerHTML = REDUCTIONS.map(r => `
+      <div class="card">
+        <div class="card-top">
+          <div style="flex:1">
+            <div class="red-row">
+              <span class="red-full">${esc(r.full)}</span>
+              <span class="red-arrow">→</span>
+              <span class="red-spoken">${esc(r.spoken)}</span>
+            </div>
+            <div class="red-ja">${esc(r.ja)}</div>
+          </div>
+          <button class="card-say" data-say="${encodeURIComponent(r.ex)}">🔊</button>
+        </div>
+        <div class="card-ex">
+          <div class="card-ex-en">${esc(r.ex)}</div>
+          <div class="card-ex-ja">${esc(r.exJa)}</div>
+        </div>
+        ${r.tip ? `<div class="tip">${esc(r.tip)}</div>` : ''}
+        <div class="card-meta">
+          <span class="pill lv${r.level}">${['', 'まず覚える', '次に覚える', '知っていれば'][r.level]}</span>
+        </div>
+      </div>`).join('');
+
+    $('#linking-cards').innerHTML = LINKING.map(l => `
+      <div class="card">
+        <div class="card-top">
+          <div style="flex:1">
+            <div class="red-row">
+              <span class="red-full" style="text-decoration:none;color:var(--text);font-size:17px;font-weight:600">${esc(l.pattern)}</span>
+              <span class="red-arrow">→</span>
+              <span class="red-spoken" style="font-size:17px">${esc(l.sounds)}</span>
+            </div>
+            <div class="red-ja">${esc(l.ja)}</div>
+          </div>
+          <button class="card-say" data-say="${encodeURIComponent(l.pattern)}">🔊</button>
+        </div>
+      </div>`).join('');
+
+    bindSayButtons('#reduction-cards');
+    bindSayButtons('#linking-cards');
+  },
+};
+
+/* -----------------------------------------------------------
+   10. 音楽を語る
+   ----------------------------------------------------------- */
+const Talk = {
+  scene: 'all',
+
+  render() {
+    const scenes = Object.keys(TALK_SCENES);
+    $('#talk-tabs').innerHTML =
+      `<button class="tab ${this.scene === 'all' ? 'on' : ''}" data-s="all">すべて</button>` +
+      scenes.map(s => `<button class="tab ${this.scene === s ? 'on' : ''}" data-s="${s}">${TALK_SCENES[s].emoji} ${TALK_SCENES[s].ja}</button>`).join('');
+
+    $$('#talk-tabs .tab').forEach(b => {
+      b.onclick = () => { this.scene = b.dataset.s; this.render(); };
+    });
+
+    const list = this.scene === 'all' ? TALK : TALK.filter(t => t.scene === this.scene);
+    $('#talk-cards').innerHTML = list.map(t => `
+      <div class="card">
+        <div class="talk-line">
+          <div class="talk-who">A</div>
+          <div class="talk-main">
+            <div class="talk-en">${esc(t.en)}</div>
+            <div class="talk-ja">${esc(t.ja)}</div>
+          </div>
+          <button class="card-say" data-say="${encodeURIComponent(t.en)}">🔊</button>
+        </div>
+        <div class="talk-line talk-b">
+          <div class="talk-who">B</div>
+          <div class="talk-main">
+            <div class="talk-en">${esc(t.reply)}</div>
+            <div class="talk-ja">${esc(t.replyJa)}</div>
+          </div>
+          <button class="card-say" data-say="${encodeURIComponent(t.reply)}">🔊</button>
+        </div>
+        <button class="btn-ghost small" style="width:100%;margin-top:6px"
+                data-pair="${encodeURIComponent(t.en + ' ... ' + t.reply)}">会話を通しで聞く</button>
+      </div>`).join('');
+
+    bindSayButtons('#talk-cards');
+    $$('#talk-cards [data-pair]').forEach(b => {
+      b.onclick = () => Speech.say(decodeURIComponent(b.dataset.pair), 0.88);
+    });
+  },
+};
+
+/* 音声ボタンをまとめて有効化 */
+function bindSayButtons(sel) {
+  $$(sel + ' .card-say').forEach(b => {
+    b.onclick = ev => { ev.stopPropagation(); sayFrom(b, decodeURIComponent(b.dataset.say)); };
+  });
+}
+
+/* -----------------------------------------------------------
+   11. クイズエンジン
+   4種類の出題をひとつの形に揃えて流す
+   ----------------------------------------------------------- */
+const N_QUESTIONS = 10;
+
+const Builder = {
+  /* スラング：意味を問う／例文の穴埋め */
+  slang() {
+    return pickWeighted(SLANG, 'slang', s => s.en).map(s => {
+      const others = sample(SLANG.filter(x => x.en !== s.en), 3);
+
+      /* 穴埋めは「例文の中に見出し語が実際に出ている」ときだけ成立する。
+         grow → grew のように形が変わる語は空所を作れないので意味問題に回す。 */
+      const blanked = makeBlank(s);
+      if (blanked && Math.random() < 0.45) {
+        return q({
+          kind: 'スラング · 穴埋め',
+          text: blanked, small: true,
+          sub: s.exJa,
+          choices: shuffleWith(s, others, x => bare(x.en)),
+          right: bare(s.en),
+          note: `<b>${esc(s.en)}</b> — ${esc(s.ja)}<br>${esc(s.note || '')}`,
+          say: s.ex,
+          key: 'slang:' + s.en,
+          rvEn: s.en, rvJa: s.ja,
+        });
+      }
+      return q({
+        kind: 'スラング',
+        text: `"${s.en}" ってどういう意味？`,
+        choices: shuffleWith(s, others, x => x.ja),
+        right: s.ja,
+        note: `${esc(s.ex)}<br><span style="color:var(--text-3)">${esc(s.exJa)}</span><br><br>${esc(s.note || '')}`,
+        say: s.ex,
+        key: 'slang:' + s.en,
+        rvEn: s.en, rvJa: s.ja,
+      });
+    });
+  },
+
+  /* 発音：縮約の元の形を問う／音を聞いて選ぶ */
+  reduction() {
+    return pickWeighted(REDUCTIONS, 'red', r => r.spoken).map(r => {
+      const others = sample(REDUCTIONS.filter(x => x.spoken !== r.spoken), 3);
+      const byEar = Math.random() < 0.5;
+
+      if (byEar) {
+        return q({
+          kind: '発音 · 聞き取り',
+          text: '聞こえた文はどれ？', small: true,
+          sub: '再生ボタンを押してください',
+          choices: shuffleWith(r, others, x => x.ex),
+          right: r.ex,
+          note: `<b>${esc(r.full)} → ${esc(r.spoken)}</b><br>${esc(r.exJa)}<br><br>${esc(r.tip || '')}`,
+          say: r.ex, autoSay: true,
+          key: 'red:' + r.spoken,
+          rvEn: r.spoken, rvJa: r.ja,
+        });
+      }
+      return q({
+        kind: '発音 · 縮約',
+        text: `"${r.spoken}" は何の短縮形？`,
+        choices: shuffleWith(r, others, x => x.full),
+        right: r.full,
+        note: `${esc(r.ex)}<br><span style="color:var(--text-3)">${esc(r.exJa)}</span><br><br>${esc(r.tip || '')}`,
+        say: r.ex,
+        key: 'red:' + r.spoken,
+        rvEn: r.spoken, rvJa: r.ja,
+      });
+    });
+  },
+
+  /* 会話：日本語 → 英語のフレーズを選ぶ */
+  talk() {
+    return pickWeighted(TALK, 'talk', t => t.en).map(t => {
+      const others = sample(TALK.filter(x => x.en !== t.en), 3);
+      return q({
+        kind: '会話 · ' + TALK_SCENES[t.scene].ja,
+        text: t.ja, small: true,
+        sub: '英語でどう言う？',
+        choices: shuffleWith(t, others, x => x.en),
+        right: t.en,
+        note: `返し例: ${esc(t.reply)}<br><span style="color:var(--text-3)">${esc(t.replyJa)}</span>`,
+        say: t.en,
+        key: 'talk:' + t.en,
+        rvEn: t.en, rvJa: t.ja,
+      });
+    });
+  },
+
+  /* 知識：英語で出題 */
+  knowledge() {
+    return pickWeighted(QUIZ, 'kn', x => x.q).map(k => q({
+      kind: '知識クイズ',
+      text: k.q, small: true,
+      sub: '',
+      choices: k.choices.slice(),
+      right: k.choices[k.answer],
+      note: `<b>${esc(k.qJa)}</b><br>${esc(k.note)}`,
+      say: k.q,
+      key: 'kn:' + k.q.slice(0, 24),
+      rvEn: k.choices[k.answer], rvJa: k.qJa,
+    }));
+  },
+};
+
+/* 問題オブジェクトを作る（選択肢の正解位置を確定させる） */
+function q(o) {
+  const choices = shuffle(o.choices);
+  return {
+    kind: o.kind, text: o.text, small: !!o.small, sub: o.sub || '',
+    choices, answer: choices.indexOf(o.right),
+    note: o.note || '', say: o.say || '', autoSay: !!o.autoSay,
+    key: o.key, rvEn: o.rvEn, rvJa: o.rvJa,
+  };
+}
+
+/* 見出し語を素の形にする： "a hater" → "hater"、"to have beef (with)" → "have beef" */
+const bare = s => s.replace(/^(a|an|to|the)\s+/i, '').replace(/\s*\([^)]*\)/g, '').trim();
+const escapeReg = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const shuffleWith = (right, others, f) => [f(right), ...others.map(f)];
+
+/* 例文から見出し語を抜いて空所にする。抜けなければ null（＝穴埋めにしない） */
+function makeBlank(s) {
+  const target = bare(s.en).split(' / ')[0];
+  if (!target) return null;
+  const re = new RegExp('\\b' + escapeReg(target) + '\\b', 'i');
+  if (!re.test(s.ex)) return null;
+  return s.ex.replace(re, '_____');
+}
+
+/* 苦手なものを優先して N 問選ぶ */
+function pickWeighted(pool, prefix, keyOf) {
+  const score = item => {
+    const r = Store.d.quiz[prefix + ':' + keyOf(item)];
+    if (!r) return 2;
+    return 1 + r.ng * 2 - Math.min(r.ok, 4) * 0.4;
+  };
+  const sorted = pool.slice().sort((a, b) => score(b) - score(a));
+  const weak = sorted.slice(0, Math.min(pool.length, N_QUESTIONS));
+  const rest = sorted.slice(N_QUESTIONS);
+  const n = Math.min(N_QUESTIONS, pool.length);
+  return shuffle([...sample(weak, Math.ceil(n * 0.7)), ...sample(rest, n)]).slice(0, n);
+}
+
+/* -----------------------------------------------------------
+   12. クイズ進行
+   ----------------------------------------------------------- */
+const Quiz = {
+  type: null, list: [], i: 0, correct: 0, missed: [], locked: false,
+
+  start(type) {
+    const built = Builder[type];
+    if (!built) return;
+    this.type = type;
+    this.list = built();
+    this.i = 0; this.correct = 0; this.missed = []; this.locked = false;
+    Store.touchToday();
+    $('#q-total').textContent = this.list.length;
+    Nav.go('quiz');
+    this.show();
+  },
+
+  show() {
+    const it = this.list[this.i];
+    this.locked = false;
+    $('#q-now').textContent = this.i + 1;
+    $('#qbar-fill').style.width = (this.i / this.list.length * 100) + '%';
+
+    $('#quiz-body').innerHTML = `
+      <div class="q-kind">${esc(it.kind)}</div>
+      <div class="q-text${it.small ? ' small' : ''}">${esc(it.text)}</div>
+      ${it.sub ? `<div class="q-sub">${esc(it.sub)}</div>` : ''}
+      ${it.say ? `<button class="q-say" id="q-say">🔊 <span>音声を聞く</span></button>` : ''}
+      <div class="q-choices">
+        ${it.choices.map((c, n) => `<button class="q-choice" data-n="${n}">${esc(c)}</button>`).join('')}
+      </div>`;
+
+    if (it.say) {
+      const b = $('#q-say');
+      b.onclick = () => sayFrom(b, it.say, 0.88);
+      if (it.autoSay) setTimeout(() => Speech.say(it.say, 0.88), 400);
+    }
+
+    $$('#quiz-body .q-choice').forEach(b => {
+      b.onclick = () => this.answer(+b.dataset.n);
+    });
+  },
+
+  answer(n) {
+    if (this.locked) return;
+    this.locked = true;
+    const it = this.list[this.i];
+    const ok = n === it.answer;
+
+    Store.record(it.key, ok);
+    if (ok) this.correct++;
+    else this.missed.push(it);
+
+    $$('#quiz-body .q-choice').forEach((b, idx) => {
+      b.disabled = true;
+      if (idx === it.answer) b.classList.add('ok');
+      else if (idx === n)    b.classList.add('ng');
+      else                   b.classList.add('dim');
+    });
+
+    if (!ok && it.say) Speech.say(it.say, 0.85);
+
+    const note = document.createElement('div');
+    note.className = 'q-note';
+    note.innerHTML = (ok ? '<b>正解</b><br>' : '<b>不正解</b><br>') + it.note;
+    $('#quiz-body').appendChild(note);
+
+    const next = document.createElement('button');
+    next.className = 'q-next';
+    next.textContent = this.i + 1 >= this.list.length ? '結果を見る' : '次へ';
+    next.onclick = () => {
+      this.i++;
+      if (this.i >= this.list.length) this.finish();
+      else this.show();
+    };
+    $('#quiz-body').appendChild(next);
+    next.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  },
+
+  finish() {
+    Speech.stop();
+    const total = this.list.length;
+    const bonus = this.correct === total ? 50 : (this.correct >= total * 0.8 ? 20 : 0);
+    if (bonus) Store.addXp(bonus);
+
+    $('#r-score').textContent = this.correct;
+    $('#r-total').textContent = total;
+    $('#r-xp').textContent = `+${this.correct * 10 + bonus} XP` + (bonus ? `（ボーナス +${bonus}）` : '');
+    $('#r-title').textContent =
+      this.correct === total ? '全問正解' :
+      this.correct >= total * 0.8 ? 'よくできています' :
+      this.correct >= total * 0.5 ? '半分は取れました' : 'ここが伸びしろです';
+
+    $('#r-review').innerHTML = this.missed.length ? `
+      <h3>間違えた項目</h3>
+      ${this.missed.map(m => `
+        <div class="r-item">
+          <div><b>${esc(m.rvEn)}</b><small>${esc(m.rvJa)}</small></div>
+          <button class="r-say" data-say="${encodeURIComponent(m.say || m.rvEn)}">🔊</button>
+        </div>`).join('')}` : '';
+
+    $$('#r-review .r-say').forEach(b => {
+      b.onclick = () => Speech.say(decodeURIComponent(b.dataset.say), 0.85);
+    });
+
+    Nav.go('result');
+  },
+};
+
+/* -----------------------------------------------------------
+   13. 記録
+   ----------------------------------------------------------- */
+const Stats = {
+  render() {
+    const d = Store.d;
+    const r = Rank.now();
+    const rate = d.answered ? Math.round(d.correct / d.answered * 100) : 0;
+
+    const groups = [
+      { p: 'slang', label: 'スラング',   total: SLANG.length },
+      { p: 'red',   label: '発音・縮約', total: REDUCTIONS.length },
+      { p: 'talk',  label: '会話',       total: TALK.length },
+      { p: 'kn',    label: '知識クイズ', total: QUIZ.length },
+    ].map(g => {
+      const seen = Object.keys(d.quiz).filter(k => k.startsWith(g.p + ':')).length;
+      return { ...g, seen, pct: Math.round(seen / g.total * 100) };
+    });
+
+    const weak = Object.entries(d.quiz)
+      .filter(([, v]) => v.ng > 0)
+      .map(([k, v]) => {
+        const [p, ...rest] = k.split(':');
+        const id = rest.join(':');
+        let ja = '';
+        if (p === 'slang') ja = (SLANG.find(s => s.en === id) || {}).ja || '';
+        if (p === 'red')   ja = (REDUCTIONS.find(s => s.spoken === id) || {}).ja || '';
+        if (p === 'talk')  ja = (TALK.find(s => s.en === id) || {}).ja || '';
+        if (p === 'kn')    ja = '知識クイズ';
+        return { id, ja, ng: v.ng, ok: v.ok };
+      })
+      .sort((a, b) => (b.ng / (b.ng + b.ok)) - (a.ng / (a.ng + a.ok)) || b.ng - a.ng)
+      .slice(0, 10);
+
+    $('#stats-body').innerHTML = `
+      <div class="stat-card">
+        <h2>いまの状態</h2>
+        <div class="stat-row"><span>ランク</span><b>${r.cur.name}<span style="font-size:12px;color:var(--text-3)"> ${r.cur.ja}</span></b></div>
+        <div class="stat-row"><span>XP</span><b>${d.xp}</b></div>
+        <div class="stat-row"><span>連続日数</span><b>${d.streak}</b></div>
+        <div class="stat-row"><span>学習した日</span><b>${d.days.length}</b></div>
+        <div class="stat-row"><span>解答数</span><b>${d.answered}</b></div>
+        <div class="stat-row"><span>正解率</span><b>${rate}%</b></div>
+      </div>
+
+      <div class="stat-card">
+        <h2>網羅の進み具合</h2>
+        <div class="stat-row" style="padding-bottom:2px"><span>ヒストリー</span><b>${d.readEras.length} / ${ERAS.length}</b></div>
+        <div class="bar-mini"><i style="width:${d.readEras.length / ERAS.length * 100}%"></i></div>
+        ${groups.map(g => `
+          <div class="stat-row" style="padding-bottom:2px;margin-top:14px"><span>${g.label}</span><b>${g.seen} / ${g.total}</b></div>
+          <div class="bar-mini"><i style="width:${g.pct}%"></i></div>`).join('')}
+      </div>
+
+      <div class="stat-card">
+        <h2>取りこぼしている項目</h2>
+        ${weak.length ? weak.map(w => `
+          <div class="weak">
+            <b>${esc(w.id)}</b>
+            <span>${esc(w.ja)}</span>
+            <em>${w.ng}回ミス</em>
+          </div>`).join('')
+        : '<p style="color:var(--text-3);font-size:13px;margin:0">まだありません。</p>'}
+      </div>`;
+  },
+};
+
+/* -----------------------------------------------------------
+   14. 起動
+   ----------------------------------------------------------- */
+function boot() {
+  Store.load();
+  Speech.init();
+  Home.render();
+
+  $$('[data-go]').forEach(b => {
+    b.onclick = () => {
+      const t = b.dataset.go;
+      if (t === 'toeic') {
+        Nav.soon('TOEIC', 'Part 2（応答問題）と Part 5（短文穴埋め）を <b>Phase B</b> で追加します。<br>ヒップホップ教材とは切り離し、スコア対策として作る予定です。');
+      } else {
+        Nav.go(t);
+      }
+    };
+  });
+
+  $$('[data-quiz]').forEach(b => {
+    b.onclick = () => Quiz.start(b.dataset.quiz);
+  });
+
+  $('[data-go="knowledge"]').onclick = () => Quiz.start('knowledge');
+
+  $('#era-play').onclick = () => Era.playAll();
+  $('#quiz-quit').onclick = () => { Speech.stop(); Nav.go('home'); };
+  $('#r-again').onclick = () => Quiz.start(Quiz.type);
+
+  $('#btn-reset').onclick = () => {
+    const d = Store.d;
+    const msg = [
+      '次の記録をすべて消します。元には戻せません。',
+      '',
+      `・XP ${d.xp}（ランク ${Rank.now().cur.name}）`,
+      `・解答 ${d.answered} 問の履歴`,
+      `・学習した項目 ${Object.keys(d.quiz).length} 件`,
+      `・読了した時代 ${d.readEras.length} / ${ERAS.length}`,
+      `・連続 ${d.streak} 日、学習した日 ${d.days.length} 日`,
+      '',
+      '消してよろしいですか？',
+    ].join('\n');
+    if (confirm(msg)) {
+      Store.reset();
+      Home.render();
+      Stats.render();
+      alert('記録を消しました。');
+    }
+  };
+
+  Nav.go('home');
+}
+
+document.addEventListener('DOMContentLoaded', boot);
+</script>
+</body>
+</html>

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bars & Words">
+<meta name="theme-color" content="#0E0E12">
+<title>Bars &amp; Words — ヒップホップで学ぶ英会話</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ================= ホーム ================= -->
+  <section class="screen active" id="screen-home">
+    <div class="hero">
+      <div class="hero-wall"></div>
+      <div class="hero-tag"><span>EST. 1973</span> BRONX, NY</div>
+      <h1 class="hero-title"><em>BARS</em><i>&amp;</i><em>WORDS</em></h1>
+      <p class="hero-sub">歌詞と歴史から、実際に使える英語へ</p>
+
+      <div class="rank-row">
+        <div class="rank-badge" id="rank-badge">Rookie</div>
+        <div class="rank-bar"><div class="rank-fill" id="rank-fill"></div></div>
+        <div class="rank-xp" id="rank-xp">0 XP</div>
+      </div>
+
+      <div class="hero-stats">
+        <div><b id="hs-streak">0</b><span>日連続</span></div>
+        <div><b id="hs-learned">0</b><span>項目</span></div>
+        <div><b id="hs-rate">—</b><span>正解率</span></div>
+      </div>
+    </div>
+
+    <div class="mc-stage" id="mc-home"><!-- MC Fresh（JSが描く） --></div>
+
+    <button class="commute-cta" id="commute-cta-btn">
+      <span class="cc-ico">🚃</span>
+      <span class="cc-text">
+        <b>通勤モード</b>
+        <small>時間を選んでタップするだけ。あとは自動で進みます</small>
+      </span>
+      <span class="cc-arrow">→</span>
+    </button>
+
+    <nav class="mode-grid">
+      <button class="mode" data-go="history" style="--c:#E0B33C">
+        <span class="m-ico">📻</span>
+        <b>ワールドツアー</b>
+        <small>時代を旅してクリアしていく</small>
+      </button>
+      <button class="mode" data-go="slang" style="--c:#D9564F">
+        <span class="m-ico">🔥</span>
+        <b>スラング</b>
+        <small>歌詞と会話で効く言葉</small>
+      </button>
+      <button class="mode" data-go="reduction" style="--c:#4FBFA8">
+        <span class="m-ico">🎚️</span>
+        <b>発音・縮約</b>
+        <small>gonna / tryna / 'em</small>
+      </button>
+      <button class="mode" data-go="talk" style="--c:#7E8CF0">
+        <span class="m-ico">💬</span>
+        <b>音楽を語る</b>
+        <small>そのまま使える会話</small>
+      </button>
+      <button class="mode" data-go="knowledge" style="--c:#B15FD6">
+        <span class="m-ico">🎯</span>
+        <b>知識クイズ</b>
+        <small>英語で出題される</small>
+      </button>
+      <button class="mode" data-go="toeic" style="--c:#5BA9CC">
+        <span class="m-ico">📘</span>
+        <b>TOEIC</b>
+        <small>Phase B で追加</small>
+      </button>
+    </nav>
+
+    <div class="home-foot">
+      <button class="link" data-go="stats">記録を見る</button>
+      <button class="link" data-go="about">このアプリについて</button>
+    </div>
+  </section>
+
+  <!-- ================= ワールドツアー（ヒストリー） ================= -->
+  <section class="screen" id="screen-history">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>ワールドツアー</h1>
+    </header>
+    <p class="lead">時代を<b>英語で読んで、バトルに勝つ</b>とクリア。次の時代と MC Fresh の新しい衣装が解放されます。</p>
+    <div class="timeline" id="timeline"></div>
+    <div class="pad"></div>
+  </section>
+
+  <!-- ================= ヒストリー詳細 ================= -->
+  <section class="screen" id="screen-era">
+    <header class="bar">
+      <button class="back" data-go="history">←</button>
+      <h1 id="era-h1">—</h1>
+      <button class="bar-btn" id="era-play">▶︎ 通しで聞く</button>
+    </header>
+    <div class="era-body" id="era-body"></div>
+  </section>
+
+  <!-- ================= スラング ================= -->
+  <section class="screen" id="screen-slang">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>スラング</h1>
+      <button class="bar-btn" data-quiz="slang">ためす</button>
+    </header>
+    <div class="tabs" id="slang-tabs"></div>
+    <div class="cards" id="slang-cards"></div>
+    <div class="pad"></div>
+  </section>
+
+  <!-- ================= 発音・縮約 ================= -->
+  <section class="screen" id="screen-reduction">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>発音・縮約</h1>
+      <button class="bar-btn" data-quiz="reduction">ためす</button>
+    </header>
+    <p class="lead">教科書に載らないのに、会話は<b>ほぼ全部これ</b>。ここを潰すと聞き取りが変わります。</p>
+    <div class="cards" id="reduction-cards"></div>
+    <h2 class="sec-h">音のつながり（リンキング）</h2>
+    <div class="cards" id="linking-cards"></div>
+    <div class="pad"></div>
+  </section>
+
+  <!-- ================= 音楽を語る ================= -->
+  <section class="screen" id="screen-talk">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>音楽を語る</h1>
+      <button class="bar-btn" data-quiz="talk">ためす</button>
+    </header>
+    <div class="tabs" id="talk-tabs"></div>
+    <div class="cards" id="talk-cards"></div>
+    <div class="pad"></div>
+  </section>
+
+  <!-- ================= クイズ ================= -->
+  <section class="screen" id="screen-quiz">
+    <header class="bar">
+      <button class="back" id="quiz-quit">やめる</button>
+      <div class="qbar"><div class="qbar-fill" id="qbar-fill"></div></div>
+      <div class="qcount"><span id="q-now">1</span>/<span id="q-total">10</span></div>
+    </header>
+    <div class="quiz-body" id="quiz-body"></div>
+  </section>
+
+  <!-- ================= 結果 ================= -->
+  <section class="screen" id="screen-result">
+    <div class="result-wrap">
+      <div class="result-score"><span id="r-score">0</span><small>/<span id="r-total">10</span></small></div>
+      <h1 id="r-title">—</h1>
+      <div class="r-xp" id="r-xp">+0 XP</div>
+      <div class="r-review" id="r-review"></div>
+      <div class="r-btns">
+        <button class="btn-primary" id="r-again">もう一度</button>
+        <button class="btn-ghost" data-go="home">ホームへ</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 記録 ================= -->
+  <section class="screen" id="screen-stats">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>記録</h1>
+    </header>
+    <div class="stats-body" id="stats-body"></div>
+    <div class="pad center">
+      <button class="btn-ghost small" id="btn-reset">記録をすべて消す</button>
+    </div>
+  </section>
+
+  <!-- ================= このアプリについて ================= -->
+  <section class="screen" id="screen-about">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>このアプリについて</h1>
+    </header>
+    <div class="about-body">
+      <h2>歌詞を載せていない理由</h2>
+      <p>歌詞は著作権で保護されているため、アプリ内に本文を置くことはできません。代わりに、
+         <b>歌詞に出てくる表現を単語・数語の単位で扱い、例文はすべて書き下ろし</b>ています。
+         原文を読みたいときは各曲の Genius リンクから飛んでください。</p>
+
+      <h2>曲は入っていません</h2>
+      <p>音源も同じ理由で埋め込めません。各時代の「聴く」ボタンは
+         Spotify / YouTube の検索を開きます。<b>横で流しながら読む</b>のが想定です。</p>
+
+      <h2>データはこの端末の中だけ</h2>
+      <p>学習記録はブラウザ内（localStorage）に保存され、外部には一切送信されません。
+         ログインも不要です。</p>
+
+      <h2>内容を足したいとき</h2>
+      <p><code>data/</code> の中の5ファイルを編集すれば増えます。
+         <code>slang.js</code> に語を1つ足せば、一覧にもクイズにも自動で出ます。</p>
+    </div>
+    <div class="pad"></div>
+  </section>
+
+  <!-- ================= 通勤モード：セットアップ ================= -->
+  <section class="screen" id="screen-commute">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>通勤モード</h1>
+    </header>
+    <div id="commute-setup"></div>
+  </section>
+
+  <!-- ================= 通勤モード：実行 ================= -->
+  <section class="screen" id="screen-commute-run">
+    <header class="bar">
+      <button class="back" id="commute-quit">終わる</button>
+      <div class="qbar"><div class="qbar-fill" id="commute-bar-fill"></div></div>
+      <div class="qcount" id="commute-stage-label">—</div>
+    </header>
+    <div class="quiz-body" id="commute-body"></div>
+  </section>
+
+  <!-- ================= 準備中 ================= -->
+  <section class="screen" id="screen-soon">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1 id="soon-h1">準備中</h1>
+    </header>
+    <div class="soon"><div class="soon-ico">🚧</div><p id="soon-p"></p></div>
+  </section>
+
+</div>
+
+<script src="data/character.js"></script>
+<script src="data/history.js"></script>
+<script src="data/slang.js"></script>
+<script src="data/pronunciation.js"></script>
+<script src="data/phrases.js"></script>
+<script src="data/quiz.js"></script>
+<script src="data/commute.js"></script>
+<script src="app.js"></script>
+<script src="commute.js"></script>
+
+<script>
+/* オフラインで動かすための登録。file:// で開いたときは何もしない */
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
