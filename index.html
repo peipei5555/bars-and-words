@@ -75,6 +75,11 @@
         <b>知識クイズ</b>
         <small>英語で出題される</small>
       </button>
+      <button class="mode" data-quiz="beat" style="--c:#2FD9AE">
+        <span class="m-ico">🎧</span>
+        <b>ビート聴き分け</b>
+        <small>鳴らして当てる・誰の音か</small>
+      </button>
       <button class="mode" data-go="toeic" style="--c:#5BA9CC">
         <span class="m-ico">📘</span>
         <b>TOEIC</b>
@@ -243,6 +248,33 @@
     <div class="quiz-body" id="commute-body"></div>
   </section>
 
+  <!-- ================= BGM（全画面共通で右下に出る） ================= -->
+  <button class="bgm-fab" id="bgm-fab" aria-label="BGM">
+    <span class="bgm-bars"><i></i><i></i><i></i><i></i></span>
+  </button>
+
+  <div class="bgm-panel" id="bgm-panel" hidden>
+    <div class="bgm-head">
+      <b>BGM</b>
+      <button class="bgm-close" id="bgm-close">✕</button>
+    </div>
+    <p class="bgm-note">歌詞のないビートをその場で合成しています。音源ファイルは持っていないので、圏外でも鳴ります。</p>
+
+    <button class="bgm-toggle" id="bgm-toggle">再生</button>
+
+    <label class="bgm-vol">
+      <span>音量</span>
+      <input type="range" id="bgm-vol" min="0" max="100" value="34">
+    </label>
+
+    <label class="bgm-follow">
+      <input type="checkbox" id="bgm-follow" checked>
+      <span>読んでいる時代のビートに自動で切り替える</span>
+    </label>
+
+    <div class="bgm-list" id="bgm-list"></div>
+  </div>
+
   <!-- ================= 準備中 ================= -->
   <section class="screen" id="screen-soon">
     <header class="bar">
@@ -261,6 +293,7 @@
 <script src="data/phrases.js"></script>
 <script src="data/quiz.js"></script>
 <script src="data/commute.js"></script>
+<script src="beat.js"></script>
 <script src="app.js"></script>
 <script src="commute.js"></script>
 

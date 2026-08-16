@@ -170,9 +170,17 @@ const Speech = {
       u.lang = 'en-US';
       u.rate = rate;
       if (this.voice) u.voice = this.voice;
-      if (onend) u.onend = onend;
+
+      /* 読み上げ中はBGMを絞る。
+         ※ Beat は const 宣言なので window に載らない。typeof で見ること */
+      const hasBeat = typeof Beat !== 'undefined';
+      if (hasBeat) Beat.duck(true);
+      const release = () => { if (hasBeat) Beat.duck(false); };
+      u.onend = () => { release(); if (onend) onend(); };
+      u.onerror = () => { release(); if (onend) onend(); };
+
       speechSynthesis.speak(u);
-    } catch (e) { if (onend) onend(); }
+    } catch (e) { if (typeof Beat !== 'undefined') Beat.duck(false); if (onend) onend(); }
   },
 
   /* 複数の文を続けて読む */
@@ -185,7 +193,10 @@ const Speech = {
     next();
   },
 
-  stop() { try { speechSynthesis.cancel(); } catch (e) {} },
+  stop() {
+    try { speechSynthesis.cancel(); } catch (e) {}
+    if (typeof Beat !== 'undefined') Beat.duck(false);
+  },
 };
 
 /* 音声ボタンの共通処理（押した瞬間に光らせる） */
@@ -463,6 +474,9 @@ const Era = {
     const battleBtn = $('#era-battle');
     if (battleBtn) battleBtn.onclick = () => Quiz.startBoss(e.id);
 
+    /* その時代のビートに切り替える */
+    if (typeof Beat !== 'undefined' && Bgm.follow) Beat.setEraBeat(e.id);
+
     Nav.go('era');
   },
 
@@ -708,6 +722,59 @@ const Builder = {
     });
   },
 
+  /* ビート：実際に鳴らして聴き分ける／作り手や特徴を問う */
+  beat() {
+    const keys = Object.keys(BEATS).filter(k => BEATS[k].about);
+    const list = [];
+
+    keys.forEach(k => {
+      const b = BEATS[k], a = b.about;
+      const others = sample(keys.filter(x => x !== k), 3).map(x => BEATS[x]);
+
+      /* ① 鳴らして当てる */
+      list.push(q({
+        kind: 'ビート · 聴き分け',
+        text: 'いま鳴っているのはどのビート？', small: true,
+        sub: a.ear,
+        choices: shuffleWith(b, others, x => x.name),
+        right: b.name,
+        note: `<b>${esc(b.name)}</b>（${esc(b.era)}）<br>${esc(a.ja)}`,
+        playBeat: k,
+        key: 'beat:' + k,
+        rvEn: b.name, rvJa: b.era,
+      }));
+
+      /* ② 誰が作った音か */
+      const otherMakers = keys.filter(x => x !== k)
+        .flatMap(x => BEATS[x].about.makers).filter(m => !a.makers.includes(m));
+      list.push(q({
+        kind: 'ビート · 作り手',
+        text: `${b.name} を作った側の人は？`, small: true,
+        sub: a.era,
+        choices: [a.makers[0], ...sample([...new Set(otherMakers)], 3)],
+        right: a.makers[0],
+        note: `<b>${esc(b.name)}</b> の主な作り手: ${esc(a.makers.join(' / '))}<br><br>${esc(a.ja)}`,
+        key: 'beatmaker:' + k,
+        rvEn: a.makers[0], rvJa: b.name,
+      }));
+
+      /* ③ 音の特徴 */
+      const otherEars = keys.filter(x => x !== k).map(x => BEATS[x].about.ear);
+      list.push(q({
+        kind: 'ビート · 特徴',
+        text: `${b.name} の音の特徴は？`, small: true,
+        choices: [a.ear, ...sample(otherEars, 3)],
+        right: a.ear,
+        note: `<b>${esc(b.name)}</b>（${esc(b.era)}）<br>${esc(a.ja)}`,
+        playBeat: k,
+        key: 'beatear:' + k,
+        rvEn: b.name, rvJa: a.ear,
+      }));
+    });
+
+    return sample(list, Math.min(N_QUESTIONS, list.length));
+  },
+
   /* 知識：英語で出題 */
   knowledge() {
     return pickWeighted(QUIZ, 'kn', x => x.q).map(k => q({
@@ -776,6 +843,7 @@ function q(o) {
     kind: o.kind, text: o.text, small: !!o.small, sub: o.sub || '',
     choices, answer: choices.indexOf(o.right),
     note: o.note || '', say: o.say || '', autoSay: !!o.autoSay,
+    playBeat: o.playBeat || null,
     key: o.key, rvEn: o.rvEn, rvJa: o.rvJa,
   };
 }
@@ -857,6 +925,7 @@ const Quiz = {
       <div class="q-text${it.small ? ' small' : ''}">${esc(it.text)}</div>
       ${it.sub ? `<div class="q-sub">${esc(it.sub)}</div>` : ''}
       ${it.say ? `<button class="q-say" id="q-say">🔊 <span>音声を聞く</span></button>` : ''}
+      ${it.playBeat ? `<button class="q-say q-beat" id="q-beat">🎧 <span>ビートを鳴らす</span></button>` : ''}
       <div class="q-choices">
         ${it.choices.map((c, n) => `<button class="q-choice" data-n="${n}">${esc(c)}</button>`).join('')}
       </div>`;
@@ -865,6 +934,16 @@ const Quiz = {
       const b = $('#q-say');
       b.onclick = () => sayFrom(b, it.say, 0.88);
       if (it.autoSay) setTimeout(() => Speech.say(it.say, 0.88), 400);
+    }
+
+    /* ビート問題：答えを見るまで名前を伏せたまま鳴らす */
+    if (it.playBeat && typeof Beat !== 'undefined') {
+      const wasFollow = Bgm.follow;
+      Bgm.follow = false;
+      const play = () => { Beat.switchTo(it.playBeat); if (!Beat.playing) Beat.start(); };
+      $('#q-beat').onclick = play;
+      setTimeout(play, 300);
+      this._restoreFollow = () => { Bgm.follow = wasFollow; };
     }
 
     $$('#quiz-body .q-choice').forEach(b => {
@@ -1058,11 +1137,130 @@ const Stats = {
 };
 
 /* -----------------------------------------------------------
+   13.5 BGM のUI
+   ----------------------------------------------------------- */
+const Bgm = {
+  follow: true,
+
+  /* ビートの解説を組み立てる */
+  aboutHtml(b) {
+    const a = b.about;
+    if (!a) return '';
+    return `
+      <p class="ba-ja">${esc(a.ja)}</p>
+      <div class="ba-sec"><h4>耳で聴き分ける</h4><p>${esc(a.ear)}</p></div>
+      <div class="ba-sec"><h4>この音を作った人たち</h4>
+        <p>${a.makers.map(m => `<span class="ba-chip">${esc(m)}</span>`).join('')}</p></div>
+      <div class="ba-sec"><h4>代表曲</h4>
+        ${a.tracks.map(t => `
+          <a class="ba-track" href="${links.youtube(t.replace(/ — /g, ' '))}" target="_blank" rel="noopener">
+            ▶︎ ${esc(t)}
+          </a>`).join('')}</div>
+      ${a.term ? `<div class="ba-term"><b>${esc(a.term.en)}</b> — ${esc(a.term.ja)}</div>` : ''}`;
+  },
+
+  init() {
+    if (typeof Beat === 'undefined') return;
+    Beat.load();
+    try {
+      const o = JSON.parse(localStorage.getItem('bars-words-beat'));
+      if (o && typeof o.follow === 'boolean') this.follow = o.follow;
+    } catch (e) {}
+
+    const fab   = $('#bgm-fab');
+    const panel = $('#bgm-panel');
+    const toggle= $('#bgm-toggle');
+    const vol   = $('#bgm-vol');
+    const follow= $('#bgm-follow');
+
+    /* ビート一覧（タップで切替、ⓘで解説） */
+    $('#bgm-list').innerHTML = Object.entries(BEATS).map(([k, b]) => `
+      <div class="bgm-row">
+        <button class="bgm-item" data-beat="${k}">
+          <b>${esc(b.name)}</b>
+          <small>${esc(b.era)} · ${b.bpm} BPM</small>
+        </button>
+        <button class="bgm-info" data-about="${k}" aria-label="解説">ⓘ</button>
+      </div>
+      <div class="bgm-about" data-about-for="${k}" hidden>${this.aboutHtml(b)}</div>`).join('');
+
+    const paint = () => {
+      fab.classList.toggle('on', Beat.playing);
+      toggle.textContent = Beat.playing ? '停止' : '再生';
+      toggle.classList.toggle('on', Beat.playing);
+      vol.value = Math.round(Beat.vol * 100);
+      follow.checked = this.follow;
+      $$('#bgm-list .bgm-item').forEach(b => {
+        b.classList.toggle('on', b.dataset.beat === Beat.key);
+      });
+    };
+
+    fab.onclick = () => {
+      const open = panel.hasAttribute('hidden');
+      if (open) { panel.removeAttribute('hidden'); paint(); }
+      else panel.setAttribute('hidden', '');
+    };
+    $('#bgm-close').onclick = () => panel.setAttribute('hidden', '');
+
+    toggle.onclick = () => { Beat.toggle(); paint(); };
+
+    vol.oninput = () => Beat.setVolume(vol.value / 100);
+
+    follow.onchange = () => {
+      this.follow = follow.checked;
+      Beat.save();
+      try {
+        const o = JSON.parse(localStorage.getItem('bars-words-beat')) || {};
+        o.follow = this.follow;
+        localStorage.setItem('bars-words-beat', JSON.stringify(o));
+      } catch (e) {}
+    };
+
+    $$('#bgm-list .bgm-item').forEach(b => {
+      b.onclick = () => {
+        Beat.switchTo(b.dataset.beat);
+        if (!Beat.playing) Beat.start();
+        this.follow = false;
+        paint();
+        follow.checked = false;
+      };
+    });
+
+    /* ⓘ で解説を開閉 */
+    $$('#bgm-list .bgm-info').forEach(b => {
+      b.onclick = () => {
+        const box = $(`#bgm-list .bgm-about[data-about-for="${b.dataset.about}"]`);
+        if (!box) return;
+        const open = box.hasAttribute('hidden');
+        $$('#bgm-list .bgm-about').forEach(x => x.setAttribute('hidden', ''));
+        if (open) { box.removeAttribute('hidden'); box.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+      };
+    });
+
+    /* 前回「再生中」だったら、最初のタップで鳴り始める（iOSの制約） */
+    if (Beat.enabled) {
+      const kick = () => {
+        Beat.start();
+        paint();
+        document.removeEventListener('click', kick);
+        document.removeEventListener('touchend', kick);
+      };
+      document.addEventListener('click', kick);
+      document.addEventListener('touchend', kick);
+    }
+
+    paint();
+    this.paint = paint;
+  },
+};
+
+/* -----------------------------------------------------------
    14. 起動
    ----------------------------------------------------------- */
 function boot() {
   Store.load();
   Speech.init();
+  Bgm.init();
   Home.render();
 
   $$('[data-go]').forEach(b => {

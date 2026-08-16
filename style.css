@@ -950,6 +950,146 @@ body::before {
   letter-spacing: 0;
 }
 
+/* ===========================================================
+   BGM
+   =========================================================== */
+.bgm-fab {
+  position: fixed; z-index: 60;
+  right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--card); border: 2px solid var(--ink);
+  box-shadow: var(--hard);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: transform .1s, box-shadow .1s;
+}
+.bgm-fab:active { transform: translate(4px, 4px); box-shadow: none; }
+.bgm-fab.on { background: var(--gold); }
+
+/* 音が鳴っているときだけ波形が動く */
+.bgm-bars { display: flex; align-items: flex-end; gap: 3px; height: 20px; }
+.bgm-bars i {
+  display: block; width: 4px; height: 6px; border-radius: 2px;
+  background: var(--text-3);
+}
+.bgm-fab.on .bgm-bars i { background: var(--ink); animation: bgm-eq .62s ease-in-out infinite; }
+.bgm-fab.on .bgm-bars i:nth-child(2) { animation-delay: .10s; }
+.bgm-fab.on .bgm-bars i:nth-child(3) { animation-delay: .20s; }
+.bgm-fab.on .bgm-bars i:nth-child(4) { animation-delay: .31s; }
+@keyframes bgm-eq { 0%,100% { height: 6px; } 50% { height: 19px; } }
+
+.bgm-panel {
+  position: fixed; z-index: 61;
+  right: 16px; bottom: calc(78px + env(safe-area-inset-bottom));
+  left: 16px; max-width: 340px; margin-left: auto;
+  background: var(--card); border: 2px solid var(--ink);
+  border-radius: var(--r); box-shadow: var(--hard);
+  padding: 16px;
+  animation: in .18s ease;
+  max-height: 70vh; overflow-y: auto;
+}
+.bgm-panel[hidden] { display: none; }
+
+.bgm-head { display: flex; align-items: center; margin-bottom: 8px; }
+.bgm-head b {
+  flex: 1; font-family: var(--f-disp); font-weight: 400;
+  font-size: 19px; letter-spacing: .06em; color: var(--gold);
+}
+.bgm-close {
+  border: none; background: none; color: var(--text-3);
+  font-size: 17px; cursor: pointer; padding: 4px 6px;
+}
+.bgm-note { font-size: 11.5px; color: var(--text-3); line-height: 1.65; margin: 0 0 14px; }
+
+.bgm-toggle {
+  width: 100%; padding: 13px;
+  background: var(--card-2); color: var(--text);
+  border: 2px solid var(--ink); border-radius: 10px;
+  font-family: var(--f-disp); font-size: 17px; letter-spacing: .06em;
+  cursor: pointer; box-shadow: var(--hard-sm);
+  transition: transform .1s, box-shadow .1s;
+}
+.bgm-toggle:active { transform: translate(3px, 3px); box-shadow: none; }
+.bgm-toggle.on { background: var(--gold); color: var(--ink); }
+
+.bgm-vol { display: flex; align-items: center; gap: 10px; margin: 16px 0 4px; }
+.bgm-vol span { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.bgm-vol input {
+  flex: 1; -webkit-appearance: none; appearance: none;
+  height: 8px; border-radius: 999px; background: var(--ink);
+  border: 1px solid var(--line); outline: none;
+}
+.bgm-vol input::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--gold); border: 2px solid var(--ink); cursor: pointer;
+}
+.bgm-vol input::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--gold); border: 2px solid var(--ink); cursor: pointer;
+}
+
+.bgm-follow {
+  display: flex; align-items: flex-start; gap: 9px;
+  margin: 14px 0 6px; cursor: pointer;
+}
+.bgm-follow input { width: 18px; height: 18px; accent-color: var(--gold); flex-shrink: 0; margin-top: 1px; }
+.bgm-follow span { font-size: 12px; color: var(--text-2); line-height: 1.55; }
+
+.bgm-list { display: grid; gap: 7px; margin-top: 12px; }
+.bgm-row { display: flex; gap: 6px; }
+.bgm-row .bgm-item { flex: 1; }
+.bgm-info {
+  flex-shrink: 0; width: 40px;
+  background: var(--bg-2); border: 2px solid var(--ink); border-radius: 9px;
+  color: var(--text-3); font-size: 15px; cursor: pointer;
+}
+.bgm-info:active { color: var(--gold); border-color: var(--gold); }
+
+.bgm-about {
+  background: var(--bg-2); border: 2px solid var(--gold); border-radius: 9px;
+  padding: 14px; animation: in .2s ease;
+}
+.bgm-about[hidden] { display: none; }
+.ba-ja { font-size: 12.5px; line-height: 1.85; color: var(--text-2); margin: 0 0 14px; }
+.ba-sec { margin-bottom: 13px; }
+.ba-sec h4 {
+  font-family: var(--f-disp); font-weight: 400; font-size: 13px;
+  letter-spacing: .08em; color: var(--gold); margin: 0 0 6px;
+}
+.ba-sec p { font-size: 12px; line-height: 1.7; color: var(--text-2); margin: 0; }
+.ba-chip {
+  display: inline-block; margin: 0 5px 5px 0; padding: 3px 9px;
+  background: var(--card-2); border: 1px solid var(--line); border-radius: 999px;
+  font-size: 11.5px; color: var(--text);
+}
+.ba-track {
+  display: block; padding: 7px 0; font-size: 12px;
+  color: var(--teal); text-decoration: none; border-bottom: 1px solid var(--line);
+}
+.ba-track:active { color: var(--gold); }
+.ba-term {
+  margin-top: 12px; padding: 9px 11px;
+  background: var(--card); border-left: 3px solid var(--teal); border-radius: 6px;
+  font-size: 12px; color: var(--text-2);
+}
+.ba-term b { color: var(--teal); font-size: 13.5px; }
+
+.q-beat { border-color: var(--teal); }
+.q-beat:active { background: rgba(47,217,174,.14); }
+
+.bgm-item {
+  text-align: left; padding: 10px 12px;
+  background: var(--bg-2); border: 2px solid var(--ink); border-radius: 9px;
+  font-family: var(--f-body); color: var(--text); cursor: pointer;
+}
+.bgm-item b { display: block; font-family: var(--f-disp); font-weight: 400; font-size: 15px; letter-spacing: .03em; }
+.bgm-item small { display: block; font-size: 10.5px; color: var(--text-3); margin-top: 2px; }
+.bgm-item.on { border-color: var(--gold); background: rgba(242,193,61,.10); }
+.bgm-item.on b { color: var(--gold); }
+
+/* クイズ中はボタンが選択肢と重ならないよう少し上げる */
+#screen-quiz.active ~ .bgm-fab { bottom: calc(16px + env(safe-area-inset-bottom)); }
+
 /* ---------------- 画面が広いとき ---------------- */
 @media (min-width: 760px) {
   .screen { align-items: center; }
