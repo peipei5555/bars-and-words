@@ -887,6 +887,11 @@ const Quiz = {
     if (!built) return;
     this.type = type;
     this.bossEra = null;
+    /* 聴き分けクイズは音を鳴らす。元々BGMを止めていたなら、終わったら止め直す */
+    if (typeof Beat !== 'undefined') {
+      this._beatWasPlaying = Beat.playing;
+      this._beatWasKey = Beat.key;
+    }
     this.list = built();
     this.i = 0; this.correct = 0; this.missed = []; this.locked = false;
     Store.touchToday();
@@ -989,6 +994,7 @@ const Quiz = {
 
   finish() {
     Speech.stop();
+    this.restoreBeat();
     if (this.type === 'boss') return this.finishBoss();
 
     const total = this.list.length;
@@ -1048,6 +1054,19 @@ const Quiz = {
       ${this.missedHtml()}`;
     this.bindReview();
     Nav.go('result');
+  },
+
+  /* クイズのために鳴らした音を元に戻す（止めていたなら止める） */
+  restoreBeat() {
+    if (typeof Beat === 'undefined') return;
+    if (this._restoreFollow) { this._restoreFollow(); this._restoreFollow = null; }
+    if (this._beatWasPlaying === false && Beat.playing) {
+      Beat.stop();
+      if (typeof Bgm !== 'undefined' && Bgm.paint) Bgm.paint();
+    } else if (this._beatWasPlaying && this._beatWasKey) {
+      Beat.switchTo(this._beatWasKey);
+    }
+    this._beatWasPlaying = undefined;
   },
 
   missedHtml() {
@@ -1195,12 +1214,33 @@ const Bgm = {
       });
     };
 
-    fab.onclick = () => {
-      const open = panel.hasAttribute('hidden');
-      if (open) { panel.removeAttribute('hidden'); paint(); }
-      else panel.setAttribute('hidden', '');
+    /* ボタンは「タップで即オン/オフ」。設定を出すのは長押し。
+       鳴っているのを止めたいときに、1タップで確実に止まるようにするため。 */
+    let held = false, holdTimer = null;
+
+    const openPanel = () => { panel.removeAttribute('hidden'); paint(); };
+    const closePanel = () => panel.setAttribute('hidden', '');
+
+    const holdStart = () => {
+      held = false;
+      holdTimer = setTimeout(() => { held = true; openPanel(); }, 450);
     };
-    $('#bgm-close').onclick = () => panel.setAttribute('hidden', '');
+    const holdEnd = () => { if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } };
+
+    fab.addEventListener('pointerdown', holdStart);
+    fab.addEventListener('pointerup', holdEnd);
+    fab.addEventListener('pointerleave', holdEnd);
+    fab.addEventListener('pointercancel', holdEnd);
+
+    fab.onclick = () => {
+      if (held) { held = false; return; }      /* 長押しでパネルを開いた直後は無視 */
+      if (!panel.hasAttribute('hidden')) { closePanel(); return; }
+      Beat.toggle();
+      paint();
+    };
+    fab.oncontextmenu = e => { e.preventDefault(); openPanel(); };
+
+    $('#bgm-close').onclick = closePanel;
 
     toggle.onclick = () => { Beat.toggle(); paint(); };
 
@@ -1237,17 +1277,9 @@ const Bgm = {
       };
     });
 
-    /* 前回「再生中」だったら、最初のタップで鳴り始める（iOSの制約） */
-    if (Beat.enabled) {
-      const kick = () => {
-        Beat.start();
-        paint();
-        document.removeEventListener('click', kick);
-        document.removeEventListener('touchend', kick);
-      };
-      document.addEventListener('click', kick);
-      document.addEventListener('touchend', kick);
-    }
+    /* 起動時に勝手に鳴らさない。画面を触った拍子に音が出るのは驚かせるだけなので、
+       BGMは必ずペーさんがボタンを押したときだけ鳴らす。 */
+    Beat.enabled = false;
 
     paint();
     this.paint = paint;
@@ -1281,7 +1313,7 @@ function boot() {
   $('[data-go="knowledge"]').onclick = () => Quiz.start('knowledge');
 
   $('#era-play').onclick = () => Era.playAll();
-  $('#quiz-quit').onclick = () => { Speech.stop(); Nav.go('home'); };
+  $('#quiz-quit').onclick = () => { Speech.stop(); Quiz.restoreBeat(); Nav.go('home'); };
   $('#r-again').onclick = () => Quiz.again();
 
   /* ---- 記録の書き出し / 読み込み ---- */
