@@ -6,7 +6,7 @@
    ・アプリを更新したら CACHE の版数を上げること。古いキャッシュは自動で消える
    =========================================================== */
 
-const CACHE = 'bars-words-v5';
+const CACHE = 'bars-words-v6';
 
 /* すべて相対パス。GitHub Pages のサブディレクトリ配信でもそのまま動く */
 const ASSETS = [
@@ -32,6 +32,7 @@ const ASSETS = [
   './data/quiz.js',
   './data/commute.js',
   './data/parse.js',
+  './data/grammar.js',
 
   './icons/icon-32.png',
   './icons/icon-180.png',

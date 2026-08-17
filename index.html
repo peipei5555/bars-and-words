@@ -40,6 +40,15 @@
 
     <div class="mc-stage" id="mc-home"><!-- MC Fresh（JSが描く） --></div>
 
+    <button class="path-cta" id="path-cta">
+      <span class="pc-ico">🗺️</span>
+      <span class="pc-txt">
+        <b>学習の道すじ</b>
+        <small>文法 → 精読 → 多読 → 音読。どこから手を付けるか迷ったらここ</small>
+      </span>
+      <span class="pc-arw">→</span>
+    </button>
+
     <button class="commute-cta" id="commute-cta-btn">
       <span class="cc-ico">🚃</span>
       <span class="cc-text">
@@ -92,6 +101,33 @@
       <button class="link" data-go="stats">記録を見る</button>
       <button class="link" data-go="about">このアプリについて</button>
     </div>
+  </section>
+
+  <!-- ================= 学習の道すじ ================= -->
+  <section class="screen" id="screen-path">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>学習の道すじ</h1>
+    </header>
+    <div id="path-body"></div>
+  </section>
+
+  <!-- ================= 文法講座：一覧 ================= -->
+  <section class="screen" id="screen-grammar">
+    <header class="bar">
+      <button class="back" data-go="path">←</button>
+      <h1>文法講座</h1>
+    </header>
+    <div id="grammar-body"></div>
+  </section>
+
+  <!-- ================= 文法講座：詳細 ================= -->
+  <section class="screen" id="screen-gitem">
+    <header class="bar">
+      <button class="back" data-go="grammar">←</button>
+      <h1 id="gi-h1">—</h1>
+    </header>
+    <div id="gitem-body"></div>
   </section>
 
   <!-- ================= 文のしくみ ================= -->
@@ -352,6 +388,7 @@
 <script src="data/quiz.js"></script>
 <script src="data/commute.js"></script>
 <script src="data/parse.js"></script>
+<script src="data/grammar.js"></script>
 <script src="beat.js"></script>
 <script src="app.js"></script>
 <script src="commute.js"></script>

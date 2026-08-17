@@ -34,6 +34,8 @@ const Store = {
       quiz: {},        // { 'slang:dope': {ok:2, ng:1} }
       readEras: [],    // 読み終えた時代の id
       clearedEras: [], // バトルに勝ってクリアした時代の id（ツアーの進行はこれ）
+      grammarRead: [], // 読み終えた文法項目の id
+      parseRead: [],   // 構造解説を開いた英文
       answered: 0,
       correct: 0,
       streak: 0,
@@ -289,6 +291,8 @@ const Nav = {
       talk:      () => Talk.render(),
       stats:     () => Stats.render(),
       voice:     () => VoiceSet.render(),
+      path:      () => Path.render(),
+      grammar:   () => Grammar.renderList(),
     }[id] || (() => {}))();
   },
   soon(t, p) { $('#soon-h1').textContent = t; $('#soon-p').innerHTML = p; this.go('soon'); },
@@ -1252,6 +1256,224 @@ const Stats = {
 };
 
 /* -----------------------------------------------------------
+   13.1 学習の道すじ（黒坂式の順序を画面にしたもの）
+   「文法・精読ができて初めて多読が効く」という順番に沿って並べる
+   ----------------------------------------------------------- */
+const Path = {
+  render() {
+    const d = Store.d;
+    const gDone = (d.grammarRead || []).length;
+    const gTotal = GRAMMAR.length;
+    const parsedTotal = Object.keys(typeof PARSE !== 'undefined' ? PARSE : {}).length;
+    const parsedRead = (d.parseRead || []).length;
+    const readEras = d.readEras.length;
+
+    const steps = [
+      {
+        n: 1, key: 'grammar', ico: '📐',
+        title: '文法の土台', en: 'Grammar',
+        body: 'まず英語の骨組みを入れます。語順・be動詞・後ろから説明する形。<b>ここを飛ばすと、あとの多読が効きません。</b>',
+        now: gDone, max: gTotal, unit: '項目',
+        go: () => { Nav.go('grammar'); },
+        cta: gDone ? '続ける' : 'はじめる',
+      },
+      {
+        n: 2, key: 'parse', ico: '📖',
+        title: '精読', en: 'Close Reading',
+        body: '1文ずつ、かたまりに割って構造を見ます。文法で覚えた形が<b>実際の文でどう出るか</b>を確かめる段階。',
+        now: parsedRead, max: parsedTotal, unit: '文',
+        go: () => { Nav.go('history'); },
+        cta: 'ツアーの英文を開く',
+        note: parsedTotal < 20 ? `※ いま解説があるのは ${parsedTotal}文（試作）。方向が良ければ全文に広げます` : '',
+      },
+      {
+        n: 3, key: 'read', ico: '📻',
+        title: '多読', en: 'Extensive Reading',
+        body: '構造が見えたら、量を読みます。<b>辞書を引きすぎず、8割分かればそのまま進む。</b>10の時代を読み切るのが目標。',
+        now: readEras, max: ERAS.length, unit: '時代',
+        go: () => { Nav.go('history'); },
+        cta: 'ワールドツアーへ',
+      },
+      {
+        n: 4, key: 'speak', ico: '🚃',
+        title: '音読・シャドーイング', en: 'Speaking',
+        body: '読めた文を<b>口に出して定着させます</b>。通勤モードが自動で流してくれるので、電車の中はこれだけでよいです。',
+        now: d.commuteSessions || 0, max: null, unit: '回',
+        go: () => { Nav.go('commute'); if (typeof Commute !== 'undefined') Commute.renderSetup(false); },
+        cta: '通勤モードへ',
+      },
+    ];
+
+    /* いま取り組むべき段階（前の段階が半分未満なら、そこを勧める） */
+    let focus = steps.length - 1;
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      if (s.max && s.now < s.max * 0.5) { focus = i; break; }
+    }
+
+    $('#path-body').innerHTML = `
+      <div class="tour-head" style="padding:20px 20px 0">
+        <div class="mc-figure sm">${mcSvg(Tour.outfit())}</div>
+        <div class="mc-bubble">${esc(
+          focus === 0 ? '焦らず文法からだ。ここが入ると後が全部楽になる'
+          : focus === 1 ? '文法はいい線まで来た。次は実際の文をバラして見てみな'
+          : focus === 2 ? '構造が見えてきたな。あとは量を読むだけだ'
+          : '仕上げは口だ。声に出さないと自分の言葉にならないぜ')}</div>
+      </div>
+
+      <p class="lead">この順番でやるのが<b>いちばん速い</b>です。文法と精読を飛ばして多読だけしても、
+        文の構造が見えないので読めた気になるだけで終わります。</p>
+
+      <div class="path-list">
+        ${steps.map((s, i) => `
+          <div class="pstep ${i === focus ? 'now' : ''} ${s.max && s.now >= s.max ? 'done' : ''}">
+            <div class="ps-head">
+              <span class="ps-n">STEP ${s.n}</span>
+              <span class="ps-ico">${s.ico}</span>
+              <span class="ps-title"><b>${esc(s.title)}</b><small>${esc(s.en)}</small></span>
+              ${i === focus ? '<span class="ps-now">いまここ</span>' : ''}
+            </div>
+            <p class="ps-body">${s.body}</p>
+            ${s.max ? `
+              <div class="ps-bar"><i style="width:${Math.min(100, s.now / s.max * 100)}%"></i></div>
+              <div class="ps-count">${s.now} / ${s.max} ${s.unit}</div>`
+            : `<div class="ps-count">これまで ${s.now} ${s.unit}</div>`}
+            ${s.note ? `<div class="ps-note">${esc(s.note)}</div>` : ''}
+            <button class="${i === focus ? 'btn-primary' : 'btn-ghost'} ps-go" data-step="${i}">${esc(s.cta)}</button>
+          </div>`).join('')}
+      </div>
+      <div class="pad"></div>`;
+
+    $$('#path-body .ps-go').forEach(b => {
+      b.onclick = () => steps[+b.dataset.step].go();
+    });
+  },
+};
+
+/* -----------------------------------------------------------
+   13.2 文法講座
+   ----------------------------------------------------------- */
+const Grammar = {
+  renderList() {
+    const done = Store.d.grammarRead || [];
+
+    $('#grammar-body').innerHTML = `
+      <p class="lead">上から順にやるのが<b>いちばん速い</b>です。1項目5分ほど。
+        例文はすべて<b>このアプリの中に出てくる英文</b>から取ってあります。</p>
+
+      ${GRAMMAR_STEPS.map(st => `
+        <h2 class="g-step">STEP ${st.n} · ${esc(st.title)}<small>${esc(st.sub)}</small></h2>
+        <div class="g-list">
+          ${GRAMMAR.filter(g => g.step === st.n).map(g => `
+            <button class="gitem ${done.includes(g.id) ? 'done' : ''}" data-g="${g.id}">
+              <span class="gi-txt">
+                <b>${esc(g.titleJa)}</b>
+                <small>${esc(g.title)}</small>
+              </span>
+              ${done.includes(g.id) ? '<span class="gi-chk">✓</span>' : '<span class="gi-arw">›</span>'}
+            </button>`).join('')}
+        </div>`).join('')}
+      <div class="pad"></div>`;
+
+    $$('#grammar-body .gitem').forEach(b => {
+      b.onclick = () => this.open(b.dataset.g);
+    });
+  },
+
+  open(id) {
+    const g = GRAMMAR.find(x => x.id === id);
+    if (!g) return;
+    const done = (Store.d.grammarRead || []).includes(id);
+
+    $('#gi-h1').textContent = g.titleJa;
+    $('#gitem-body').innerHTML = `
+      <div class="gi-head">
+        <div class="gi-en">${esc(g.title)}</div>
+        <div class="gi-ja">${esc(g.titleJa)}</div>
+      </div>
+
+      <h2 class="p-h">なぜ要るのか</h2>
+      <div class="p-point">${g.why}</div>
+
+      <h2 class="p-h">要点</h2>
+      <ul class="gi-rules">
+        ${g.rules.map(r => `<li>${r}</li>`).join('')}
+      </ul>
+
+      <h2 class="p-h">実際の文で見る</h2>
+      <div class="gi-exs">
+        ${g.ex.map(e => `
+          <div class="gi-ex">
+            <div class="gie-en">${esc(e.en)}</div>
+            <div class="gie-ja">${esc(e.ja)}</div>
+            ${e.note ? `<div class="gie-note">${esc(e.note)}</div>` : ''}
+            <div class="gie-btns">
+              <button class="gie-say" data-say="${encodeURIComponent(e.en)}">🔊 聞く</button>
+              <button class="gie-say" data-slow="${encodeURIComponent(e.en)}">🐢 ゆっくり</button>
+              ${e.sentence && typeof PARSE !== 'undefined' && PARSE[e.sentence]
+                ? `<button class="gie-say gie-parse" data-parse="${encodeURIComponent(e.sentence)}">📖 しくみ</button>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>
+
+      ${g.trap && g.trap.length ? `
+        <h2 class="p-h">よくある間違い</h2>
+        <div class="gi-traps">
+          ${g.trap.map(t => `
+            <div class="gi-trap">
+              <div class="gt-bad">✕ ${esc(t.bad)}</div>
+              <div class="gt-good">○ ${esc(t.good)}</div>
+              <div class="gt-why">${t.why}</div>
+            </div>`).join('')}
+        </div>` : ''}
+
+      <div class="pad center" style="flex-direction:column;gap:10px">
+        <button class="${done ? 'btn-ghost' : 'btn-primary'}" id="gi-done" style="width:100%">
+          ${done ? '✓ 読了済み（もう一度読む）' : '読み終えた（+20 XP）'}
+        </button>
+        ${this.nextBtn(id)}
+      </div>`;
+
+    $$('#gitem-body .gie-say').forEach(b => {
+      b.onclick = () => {
+        if (b.dataset.say)   Speech.say(decodeURIComponent(b.dataset.say), 0.9);
+        if (b.dataset.slow)  Speech.say(decodeURIComponent(b.dataset.slow), 0.6);
+        if (b.dataset.parse) Parse.open(decodeURIComponent(b.dataset.parse));
+      };
+    });
+
+    $('#gi-done').onclick = () => {
+      const list = Store.d.grammarRead || (Store.d.grammarRead = []);
+      if (!list.includes(id)) {
+        list.push(id);
+        Store.addXp(20);
+        Store.touchToday();
+      }
+      const nx = this.nextId(id);
+      if (nx) this.open(nx);
+      else { this.renderList(); Nav.go('grammar'); }
+    };
+
+    const nb = $('#gi-next');
+    if (nb) nb.onclick = () => this.open(nb.dataset.next);
+
+    Nav.go('gitem');
+  },
+
+  nextId(id) {
+    const i = GRAMMAR.findIndex(x => x.id === id);
+    return (i >= 0 && i + 1 < GRAMMAR.length) ? GRAMMAR[i + 1].id : null;
+  },
+
+  nextBtn(id) {
+    const nx = this.nextId(id);
+    if (!nx) return '<div class="battle-hint">これが最後の項目です。おつかれさまでした</div>';
+    const g = GRAMMAR.find(x => x.id === nx);
+    return `<button class="btn-ghost" id="gi-next" data-next="${nx}" style="width:100%">次へ: ${esc(g.titleJa)}</button>`;
+  },
+};
+
+/* -----------------------------------------------------------
    13.3 文のしくみ（構造・文法・言い換え）
    ----------------------------------------------------------- */
 const Parse = {
@@ -1261,6 +1483,10 @@ const Parse = {
     const p = typeof PARSE !== 'undefined' ? PARSE[sentence] : null;
     if (!p) return;
     this.cur = sentence;
+
+    /* 精読した文として記録（学習の道すじの進捗になる） */
+    const seen = Store.d.parseRead || (Store.d.parseRead = []);
+    if (!seen.includes(sentence)) { seen.push(sentence); Store.addXp(5); Store.touchToday(); }
 
     /* 語のかたまりを色分けして並べる */
     const chunks = p.chunks.map((c, i) => {
@@ -1554,6 +1780,7 @@ function boot() {
 
   $('[data-go="knowledge"]').onclick = () => Quiz.start('knowledge');
 
+  $('#path-cta').onclick = () => Nav.go('path');
   $('#era-play').onclick = () => Era.playAll();
   $('#quiz-quit').onclick = () => { Speech.stop(); Quiz.restoreBeat(); Nav.go('home'); };
   $('#r-again').onclick = () => Quiz.again();

@@ -951,6 +951,133 @@ body::before {
 }
 
 /* ===========================================================
+   学習の道すじ
+   =========================================================== */
+.path-cta {
+  display: flex; align-items: center; gap: 13px;
+  width: calc(100% - 40px); margin: 4px 20px 0;
+  background: linear-gradient(100deg, rgba(47,217,174,.16), rgba(94,140,240,.10));
+  border: 2px solid var(--teal); border-radius: var(--r);
+  box-shadow: var(--hard);
+  padding: 15px 17px; text-align: left; font-family: var(--f-body); color: var(--text);
+  cursor: pointer; transition: transform .1s, box-shadow .1s;
+}
+.path-cta:active { transform: translate(4px, 4px); box-shadow: none; }
+.pc-ico { font-size: 27px; flex-shrink: 0; }
+.pc-txt { flex: 1; }
+.pc-txt b { display: block; font-family: var(--f-disp); font-weight: 400; font-size: 19px; letter-spacing: .02em; }
+.pc-txt small { display: block; font-size: 11.5px; color: var(--text-2); margin-top: 3px; line-height: 1.5; }
+.pc-arw { font-family: var(--f-disp); font-size: 22px; color: var(--teal); flex-shrink: 0; }
+
+.path-list { padding: 14px 20px 0; display: grid; gap: 14px; }
+.pstep {
+  background: var(--card); border: 2px solid var(--ink); border-radius: var(--r);
+  box-shadow: var(--hard-sm); padding: 16px;
+}
+.pstep.now { border-color: var(--gold); box-shadow: 4px 4px 0 var(--gold); }
+.pstep.done { opacity: .72; }
+
+.ps-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 10px; }
+.ps-n {
+  font-family: var(--f-disp); font-size: 12px; letter-spacing: .1em;
+  color: var(--ink); background: var(--text-3); padding: 2px 8px; border-radius: 3px;
+}
+.pstep.now .ps-n { background: var(--gold); }
+.ps-ico { font-size: 22px; }
+.ps-title { flex: 1; min-width: 0; }
+.ps-title b { display: block; font-family: var(--f-disp); font-weight: 400; font-size: 19px; letter-spacing: .02em; }
+.ps-title small { display: block; font-size: 10.5px; color: var(--text-3); letter-spacing: .08em; }
+.ps-now {
+  font-family: var(--f-disp); font-size: 11px; letter-spacing: .06em;
+  color: var(--ink); background: var(--gold); padding: 3px 9px; border-radius: 3px;
+}
+.ps-body { font-size: 12.5px; line-height: 1.85; color: var(--text-2); margin: 0 0 12px; }
+.ps-body b { color: var(--gold); }
+.ps-bar { height: 8px; background: var(--ink); border-radius: 999px; overflow: hidden; }
+.ps-bar i { display: block; height: 100%; background: repeating-linear-gradient(45deg, var(--gold) 0 5px, #C99A22 5px 10px); }
+.ps-count { font-family: var(--f-disp); font-size: 13px; color: var(--text-2); margin-top: 6px; letter-spacing: .04em; }
+.ps-note { font-size: 11.5px; color: var(--text-3); line-height: 1.7; margin-top: 8px; }
+.ps-go { width: 100%; margin-top: 13px; }
+
+/* ===========================================================
+   文法講座
+   =========================================================== */
+#grammar-body, #gitem-body { padding: 0 0 20px; }
+
+.g-step {
+  padding: 26px 20px 8px; margin: 0;
+  font-family: var(--f-disp); font-weight: 400; font-size: 17px;
+  letter-spacing: .06em; color: var(--gold);
+}
+.g-step small {
+  display: block; font-family: var(--f-body); font-size: 11.5px;
+  color: var(--text-3); font-weight: 500; letter-spacing: 0; margin-top: 4px;
+}
+.g-list { padding: 0 20px; display: grid; gap: 8px; }
+
+.gitem {
+  display: flex; align-items: center; gap: 10px;
+  text-align: left; padding: 14px 15px;
+  background: var(--card); border: 2px solid var(--ink); border-radius: 10px;
+  box-shadow: var(--hard-sm);
+  font-family: var(--f-body); color: var(--text); cursor: pointer;
+  transition: transform .1s, box-shadow .1s;
+}
+.gitem:active { transform: translate(3px, 3px); box-shadow: none; }
+.gitem.done { border-color: var(--ok); opacity: .82; }
+.gi-txt { flex: 1; min-width: 0; }
+.gi-txt b { display: block; font-size: 15.5px; }
+.gi-txt small { display: block; font-size: 11px; color: var(--text-3); margin-top: 2px; letter-spacing: .06em; }
+.gi-chk { font-family: var(--f-disp); font-size: 17px; color: var(--ok); }
+.gi-arw { font-family: var(--f-disp); font-size: 19px; color: var(--text-3); }
+
+.gi-head { padding: 20px 20px 0; }
+.gi-en {
+  font-family: var(--f-disp); font-weight: 400; font-size: 29px;
+  letter-spacing: .01em; text-transform: uppercase;
+  text-shadow: 3px 3px 0 var(--ink);
+}
+.gi-ja { font-size: 14px; color: var(--text-2); margin-top: 6px; }
+
+#gitem-body .p-h, #gitem-body .p-point { margin-left: 20px; margin-right: 20px; }
+
+.gi-rules { margin: 0 20px; padding-left: 20px; }
+.gi-rules li { font-size: 13px; line-height: 1.95; color: var(--text-2); margin-bottom: 9px; }
+.gi-rules b { color: var(--gold); }
+
+.gi-exs { padding: 0 20px; display: grid; gap: 11px; }
+.gi-ex {
+  background: var(--card); border: 2px solid var(--ink);
+  border-left: 5px solid var(--teal); border-radius: 10px; padding: 14px;
+}
+.gie-en {
+  font-size: 16px; line-height: 1.6; font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.gie-ja { font-size: 12.5px; color: var(--text-2); margin-top: 6px; }
+.gie-note {
+  font-size: 11.5px; color: var(--text-3); line-height: 1.75; margin-top: 9px;
+  padding-left: 10px; border-left: 2px solid var(--line);
+}
+.gie-btns { display: flex; gap: 7px; margin-top: 12px; flex-wrap: wrap; }
+.gie-say {
+  border: 2px solid var(--ink); background: var(--card-2);
+  color: var(--text-2); font-family: var(--f-body); font-size: 11.5px; font-weight: 700;
+  padding: 7px 12px; border-radius: 999px; cursor: pointer;
+}
+.gie-say:active { background: var(--gold); color: var(--ink); }
+.gie-parse { border-color: var(--gold); color: var(--gold); }
+
+.gi-traps { padding: 0 20px; display: grid; gap: 10px; }
+.gi-trap {
+  background: var(--bg-2); border: 2px solid var(--ink); border-radius: 10px; padding: 13px 15px;
+}
+.gt-bad { font-size: 14px; color: var(--ng); font-weight: 700; }
+.gt-good { font-size: 14px; color: var(--ok); font-weight: 700; margin-top: 5px; }
+.gt-why { font-size: 12px; color: var(--text-3); line-height: 1.75; margin-top: 9px; }
+.gt-why b { color: var(--text-2); }
+
+/* ===========================================================
    文のしくみ
    =========================================================== */
 #parse-body { padding: 20px; }
