@@ -88,9 +88,66 @@
     </nav>
 
     <div class="home-foot">
+      <button class="link" data-go="voice">🔊 音声の設定</button>
       <button class="link" data-go="stats">記録を見る</button>
       <button class="link" data-go="about">このアプリについて</button>
     </div>
+  </section>
+
+  <!-- ================= 文のしくみ ================= -->
+  <section class="screen" id="screen-parse">
+    <header class="bar">
+      <button class="back" data-go="era">←</button>
+      <h1>文のしくみ</h1>
+    </header>
+    <div id="parse-body"></div>
+  </section>
+
+  <!-- ================= 音声の設定 ================= -->
+  <section class="screen" id="screen-voice">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>音声の設定</h1>
+    </header>
+
+    <p class="lead">読み上げが聞き取りづらいときは、ここで<b>声を変える／速さを落とす</b>と改善します。
+      端末に入っている声を使っているので、選べる中身は端末によって違います。</p>
+
+    <div class="vset">
+      <h2>いま使っている声</h2>
+      <div class="vnow" id="v-now">—</div>
+
+      <div class="vrow">
+        <button class="btn-ghost small" id="v-test">この声で試す</button>
+        <button class="btn-ghost small" id="v-slow">ゆっくり試す</button>
+      </div>
+
+      <h2>速さ</h2>
+      <label class="vslider">
+        <input type="range" id="v-rate" min="50" max="130" step="5" value="90">
+        <span id="v-rate-label">×0.90</span>
+      </label>
+      <p class="vhint">ゆっくりにすると、単語の区切りが聞き取りやすくなります。0.7〜0.8 あたりが練習向きです。</p>
+
+      <h2>声を選ぶ</h2>
+      <div class="vlist" id="v-list"></div>
+
+      <div class="vtip" id="v-tip">
+        <h3>iPhoneで音質を上げる（一番効きます）</h3>
+        <p>iPhoneの初期状態の英語音声は、容量を抑えた「軽量版」で音が粗いです。
+          <b>高品質版を追加でダウンロードすると、別物になります。</b>無料です。</p>
+        <ol>
+          <li>iPhoneの「設定」アプリを開く</li>
+          <li><b>アクセシビリティ</b> → <b>読み上げコンテンツ</b> → <b>声</b></li>
+          <li><b>英語</b> を選ぶ</li>
+          <li><b>Samantha</b> などの横にある <b>⬇︎</b> を押して落とす<br>
+            （「高品質」「Enhanced」と付いているものを選ぶ）</li>
+          <li>このページに戻って、下の一覧から落とした声を選ぶ</li>
+        </ol>
+        <p class="vhint">※ 落とした声がすぐ一覧に出ないときは、いちどアプリを閉じて開き直してください。</p>
+      </div>
+    </div>
+    <div class="pad"></div>
   </section>
 
   <!-- ================= ワールドツアー（ヒストリー） ================= -->
@@ -294,6 +351,7 @@
 <script src="data/phrases.js"></script>
 <script src="data/quiz.js"></script>
 <script src="data/commute.js"></script>
+<script src="data/parse.js"></script>
 <script src="beat.js"></script>
 <script src="app.js"></script>
 <script src="commute.js"></script>

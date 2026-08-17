@@ -130,24 +130,67 @@ const Rank = {
 /* -----------------------------------------------------------
    3. 読み上げ
    ----------------------------------------------------------- */
+const VOICE_KEY = 'bars-words-voice';
+
 const Speech = {
   voice: null,
   ready: false,
+  rate: 0.9,          /* 標準の速さ。設定で変えられる */
+  list: [],           /* 端末で使える英語の声 */
+  pinned: null,       /* ペーさんが選んだ声の名前 */
+
+  /* 声の品質を推定する。iOS/macOS は名前に (Enhanced)/(Premium) が付く */
+  quality(v) {
+    const n = v.name || '';
+    if (/premium/i.test(n))   return { rank: 3, label: '最高品質' };
+    if (/enhanced/i.test(n))  return { rank: 3, label: '高品質' };
+    if (/neural|natural/i.test(n)) return { rank: 3, label: '高品質' };
+    if (/compact/i.test(n))   return { rank: 1, label: '軽量（粗い）' };
+    if (!v.localService)      return { rank: 2, label: 'オンライン' };
+    return { rank: 2, label: '標準' };
+  },
+
+  refreshList() {
+    if (!('speechSynthesis' in window)) return;
+    const vs = speechSynthesis.getVoices() || [];
+    this.list = vs
+      .filter(v => v.lang && v.lang.toLowerCase().startsWith('en'))
+      .map(v => ({ v, q: this.quality(v) }))
+      /* 品質の高い順 → 米英を優先 → 名前順 */
+      .sort((a, b) =>
+        b.q.rank - a.q.rank ||
+        (/(en[-_]US|en[-_]GB)/i.test(b.v.lang) ? 1 : 0) - (/(en[-_]US|en[-_]GB)/i.test(a.v.lang) ? 1 : 0) ||
+        a.v.name.localeCompare(b.v.name));
+  },
 
   init() {
     if (!('speechSynthesis' in window)) return;
+
+    /* 保存された設定を読む */
+    try {
+      const o = JSON.parse(localStorage.getItem(VOICE_KEY));
+      if (o) {
+        if (typeof o.rate === 'number') this.rate = o.rate;
+        if (o.name) this.pinned = o.name;
+      }
+    } catch (e) {}
+
     const pick = () => {
-      const vs = speechSynthesis.getVoices();
-      if (!vs.length) return;
-      const want = ['Samantha', 'Alex', 'Daniel', 'Karen',
-                    'Google US English', 'Microsoft Aria', 'Microsoft Zira'];
-      this.voice = vs.find(v => want.includes(v.name))
-                || vs.find(v => v.lang === 'en-US')
-                || vs.find(v => v.lang && v.lang.startsWith('en'))
-                || null;
+      this.refreshList();
+      if (!this.list.length) return;
+
+      /* ペーさんが選んだ声があればそれを使う */
+      if (this.pinned) {
+        const hit = this.list.find(x => x.v.name === this.pinned);
+        if (hit) { this.voice = hit.v; return; }
+      }
+      /* 未選択なら、いちばん品質の高いものを自動で選ぶ */
+      this.voice = this.list[0].v;
     };
     pick();
     speechSynthesis.onvoiceschanged = pick;
+
+    this._pick = pick;
 
     const unlock = () => {
       if (this.ready) return;
@@ -162,13 +205,14 @@ const Speech = {
     document.addEventListener('click', unlock);
   },
 
+  /* rate は「この場面での相対的な速さ」。設定した基準速度に掛ける */
   say(text, rate = 0.9, onend) {
     if (!('speechSynthesis' in window)) { if (onend) onend(); return; }
     try {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'en-US';
-      u.rate = rate;
+      u.lang = (this.voice && this.voice.lang) || 'en-US';
+      u.rate = Math.max(0.4, Math.min(1.6, (rate / 0.9) * this.rate));
       if (this.voice) u.voice = this.voice;
 
       /* 読み上げ中はBGMを絞る。
@@ -197,6 +241,26 @@ const Speech = {
     try { speechSynthesis.cancel(); } catch (e) {}
     if (typeof Beat !== 'undefined') Beat.duck(false);
   },
+
+  /* 声と速さを保存する */
+  save() {
+    try {
+      localStorage.setItem(VOICE_KEY, JSON.stringify({
+        name: this.pinned, rate: this.rate,
+      }));
+    } catch (e) {}
+  },
+
+  setVoice(name) {
+    this.pinned = name || null;
+    if (this._pick) this._pick();
+    this.save();
+  },
+
+  setRate(r) {
+    this.rate = Math.max(0.5, Math.min(1.3, r));
+    this.save();
+  },
 };
 
 /* 音声ボタンの共通処理（押した瞬間に光らせる） */
@@ -224,6 +288,7 @@ const Nav = {
       reduction: () => Reduction.render(),
       talk:      () => Talk.render(),
       stats:     () => Stats.render(),
+      voice:     () => VoiceSet.render(),
     }[id] || (() => {}))();
   },
   soon(t, p) { $('#soon-h1').textContent = t; $('#soon-p').innerHTML = p; this.go('soon'); },
@@ -241,6 +306,16 @@ const shuffle = a => {
   return r;
 };
 const sample = (a, n) => shuffle(a).slice(0, n);
+
+/* 段落の中から、構造解説を持つ文を拾う。
+   history.js は1要素に複数の文が入るため、キーの完全一致では引けない。
+   長い文を先に返すことで、部分文字列がぶつかっても正しい方を選べる。 */
+function parseTargets(paragraph) {
+  if (typeof PARSE === 'undefined') return [];
+  return Object.keys(PARSE)
+    .filter(k => paragraph.includes(k))
+    .sort((a, b) => paragraph.indexOf(a) - paragraph.indexOf(b));
+}
 
 /* 外部サービスの検索リンク */
 const links = {
@@ -388,12 +463,25 @@ const Era = {
       </div>
 
       <div class="era-sents" style="--c:${e.color}">
-        ${e.en.map((s, i) => `
+        ${e.en.map((s, i) => {
+          /* history.js は1要素に複数の文が入ることがある。
+             段落の中から、解説データを持つ文だけを拾う。 */
+          const targets = parseTargets(s);
+          return `
           <div class="sent" data-i="${i}">
             <div class="sent-en">${esc(s)}</div>
             <div class="sent-ja">${esc(e.ja[i] || '')}</div>
+            ${targets.length ? `<div class="sent-parse-row">${
+              targets.map(t => `
+                <button class="sent-parse" data-parse-key="${encodeURIComponent(t)}">
+                  📖 ${targets.length > 1
+                        ? esc(t.split(/\s+/).slice(0, 3).join(' ')) + '…'
+                        : '文のしくみを見る'}
+                </button>`).join('')
+            }</div>` : ''}
             ${i === 0 ? '<div class="sent-hint">タップすると訳が出て、音声が流れます</div>' : ''}
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       </div>
 
       <div class="era-sec" style="--c:${e.color}">
@@ -454,6 +542,14 @@ const Era = {
       el.onclick = () => {
         el.classList.toggle('on');
         if (el.classList.contains('on')) Speech.say(e.en[+el.dataset.i]);
+      };
+    });
+
+    /* 「文のしくみを見る」→ 構造解説を開く */
+    $$('#era-body .sent-parse').forEach(b => {
+      b.onclick = ev => {
+        ev.stopPropagation();
+        Parse.open(decodeURIComponent(b.dataset.parseKey));
       };
     });
 
@@ -1156,6 +1252,151 @@ const Stats = {
 };
 
 /* -----------------------------------------------------------
+   13.3 文のしくみ（構造・文法・言い換え）
+   ----------------------------------------------------------- */
+const Parse = {
+  cur: null,
+
+  open(sentence) {
+    const p = typeof PARSE !== 'undefined' ? PARSE[sentence] : null;
+    if (!p) return;
+    this.cur = sentence;
+
+    /* 語のかたまりを色分けして並べる */
+    const chunks = p.chunks.map((c, i) => {
+      const r = ROLE_INFO[c.role] || ROLE_INFO.M;
+      return `
+        <button class="pc" data-i="${i}" style="--rc:${r.c}">
+          <span class="pc-role">${r.short}</span>
+          <span class="pc-en">${esc(c.t)}</span>
+          <span class="pc-ja">${esc(c.ja)}</span>
+        </button>`;
+    }).join('<span class="pc-sep">›</span>');
+
+    /* 使われている役割だけ凡例に出す */
+    const used = [...new Set(p.chunks.map(c => c.role))];
+
+    $('#parse-body').innerHTML = `
+      <div class="p-sent">
+        <div class="p-en">${esc(sentence)}</div>
+        <button class="q-say" id="p-say">🔊 <span>聞く</span></button>
+        <button class="q-say" id="p-slow" style="border-color:var(--teal)">🐢 <span>ゆっくり</span></button>
+      </div>
+
+      <h2 class="p-h">かたまりで捉える</h2>
+      <p class="p-lead">英語は<b>語のかたまり（チャンク）</b>で意味が決まります。タップするとその部分だけ聞けます。</p>
+      <div class="p-chunks">${chunks}</div>
+      <div class="p-legend">
+        ${used.map(r => {
+          const i = ROLE_INFO[r] || ROLE_INFO.M;
+          return `<span class="pl" style="--rc:${i.c}"><b>${i.short}</b>${i.ja}</span>`;
+        }).join('')}
+      </div>
+
+      <h2 class="p-h">この文のポイント</h2>
+      <div class="p-point">${p.point}</div>
+
+      ${p.grammar ? `
+        <h2 class="p-h">文法</h2>
+        <div class="p-gram">
+          <h3>${esc(p.grammar.title)}</h3>
+          <p>${p.grammar.body}</p>
+        </div>` : ''}
+
+      ${p.alts && p.alts.length ? `
+        <h2 class="p-h">別の言い方</h2>
+        <div class="p-alts">
+          ${p.alts.map((a, i) => `
+            <div class="p-alt">
+              <div class="pa-en">${esc(a.en)}</div>
+              <div class="pa-ja">${esc(a.ja)}</div>
+              <button class="pa-say" data-say="${encodeURIComponent(a.en)}">🔊</button>
+            </div>`).join('')}
+        </div>` : ''}
+
+      <div class="pad"></div>`;
+
+    /* かたまりをタップ → その部分だけ読み上げ */
+    $$('#parse-body .pc').forEach(b => {
+      b.onclick = () => {
+        const c = p.chunks[+b.dataset.i];
+        b.classList.add('hit');
+        setTimeout(() => b.classList.remove('hit'), 700);
+        Speech.say(c.t, 0.72);
+      };
+    });
+
+    $('#p-say').onclick  = () => Speech.say(sentence, 0.9);
+    $('#p-slow').onclick = () => Speech.say(sentence, 0.6);
+    $$('#parse-body .pa-say').forEach(b => {
+      b.onclick = () => Speech.say(decodeURIComponent(b.dataset.say), 0.85);
+    });
+
+    Nav.go('parse');
+  },
+};
+
+/* -----------------------------------------------------------
+   13.4 音声の設定画面
+   ----------------------------------------------------------- */
+const VoiceSet = {
+  render() {
+    Speech.refreshList();
+
+    const cur = Speech.voice;
+    const curQ = cur ? Speech.quality(cur) : null;
+    $('#v-now').innerHTML = cur
+      ? `<b>${esc(cur.name)}</b><span class="vq q${curQ.rank}">${curQ.label}</span>
+         <small>${esc(cur.lang)}${cur.localService ? '' : ' · オンライン'}</small>`
+      : '<span style="color:var(--ng)">この端末では読み上げが使えません</span>';
+
+    $('#v-rate').value = Math.round(Speech.rate * 100);
+    $('#v-rate-label').textContent = '×' + Speech.rate.toFixed(2);
+
+    /* 声の一覧。品質の高いものが上に来る */
+    $('#v-list').innerHTML = Speech.list.length
+      ? Speech.list.map(({ v, q }) => `
+        <button class="vitem ${cur && v.name === cur.name ? 'on' : ''}" data-v="${encodeURIComponent(v.name)}">
+          <span class="vi-main">
+            <b>${esc(v.name)}</b>
+            <small>${esc(v.lang)}${v.localService ? '' : ' · オンライン'}</small>
+          </span>
+          <span class="vq q${q.rank}">${q.label}</span>
+        </button>`).join('')
+      : '<p class="vhint">英語の声が見つかりませんでした。端末の設定から追加してください。</p>';
+
+    $$('#v-list .vitem').forEach(b => {
+      b.onclick = () => {
+        const name = decodeURIComponent(b.dataset.v);
+        Speech.setVoice(name);
+        this.render();
+        Speech.say('This beat goes hard. Real talk.', 0.9);
+      };
+    });
+
+    /* iPhone以外では手順の案内を隠す */
+    const isApple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent);
+    $('#v-tip').style.display = isApple ? '' : 'none';
+  },
+
+  init() {
+    const rate = $('#v-rate');
+    if (!rate) return;
+
+    rate.oninput = () => {
+      Speech.setRate(rate.value / 100);
+      $('#v-rate-label').textContent = '×' + Speech.rate.toFixed(2);
+    };
+    rate.onchange = () => Speech.say('Who is your favorite MC?', 0.9);
+
+    $('#v-test').onclick = () =>
+      Speech.say("Don't sleep on this album. It grew on me.", 0.9);
+    $('#v-slow').onclick = () =>
+      Speech.say("Don't sleep on this album. It grew on me.", 0.62);
+  },
+};
+
+/* -----------------------------------------------------------
    13.5 BGM のUI
    ----------------------------------------------------------- */
 const Bgm = {
@@ -1292,6 +1533,7 @@ const Bgm = {
 function boot() {
   Store.load();
   Speech.init();
+  VoiceSet.init();
   Bgm.init();
   Home.render();
 
