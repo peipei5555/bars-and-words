@@ -7,11 +7,15 @@
 
 'use strict';
 
+/* 黒坂式の順序（文法・精読が先、多読と音読はその後）に合わせた並び。
+   ペーさんが選ぶのは時間だけで、中身は毎日ここから自動で配られる。 */
 const COMMUTE_STAGE_JA = {
-  shadow: 'シャドーイング',
-  flash:  '単語カード',
-  drill:  '会話ドリル',
-  quiz:   '仕上げクイズ',
+  grammar: '今日の文法',
+  parse:   '精読',
+  shadow:  'シャドーイング',
+  flash:   '単語カード',
+  drill:   '会話ドリル',
+  quiz:    '仕上げクイズ',
 };
 
 /* 触れていない項目を優先して n 件選ぶ（露出回数は Store.d.commuteSeen に保存） */
@@ -41,16 +45,45 @@ const Commute = {
     const el = $('#commute-setup');
     if (!el) return;
     const done = showDone && this._lastSummary;
+    const gDone = (Store.d.grammarRead || []).length;
+    const gTotal = typeof GRAMMAR !== 'undefined' ? GRAMMAR.length : 0;
+    const nextG = typeof GRAMMAR !== 'undefined'
+      ? (GRAMMAR.find(g => !(Store.d.grammarRead || []).includes(g.id)) || null) : null;
+
     el.innerHTML = `
-      <p class="lead">音は出さずに口だけ動かす<b>シャドーイング</b>、<b>単語カード</b>、
-      頭の中で答える<b>会話ドリル</b>、仕上げの<b>クイズ</b>を、選んだ時間ぶん自動で流します。
-      タップは最小限、ほぼ流れに乗るだけです。</p>
+      <p class="lead">時間を選ぶだけで、<b>今日やるぶんが自動で配られます</b>。
+        黒坂式の順番どおり <b>文法 → 精読 → 音読 → 定着</b> と流れるので、
+        毎日これだけ続けていれば勝手に前へ進みます。タップは最小限です。</p>
+
+      ${gTotal ? `
+      <div class="cm-today">
+        <div class="cmt-h">つぎに配られる内容</div>
+        <div class="cmt-row"><span class="cmt-n">1</span>
+          <b>今日の文法</b>${nextG ? ` … ${esc(nextG.titleJa)}` : ' … 全項目を一巡したので復習に入ります'}</div>
+        <div class="cmt-row"><span class="cmt-n">2</span><b>精読</b> … 文をかたまりに割って構造を見る</div>
+        <div class="cmt-row"><span class="cmt-n">3</span><b>シャドーイング・単語カード・会話ドリル</b></div>
+        <div class="cmt-row"><span class="cmt-n">4</span><b>仕上げクイズ</b></div>
+        <div class="cmd-prog" style="margin-top:12px">
+          <span>文法の進み具合</span>
+          <div class="bar-mini"><i style="width:${gDone / gTotal * 100}%"></i></div>
+          <b>${gDone} / ${gTotal} 項目</b>
+        </div>
+      </div>` : ''}
       ${done ? `
       <div class="cm-done-banner">
         <b>✓ 今日のセッション完了</b>
-        <div style="margin-top:6px;font-size:13px;color:var(--text-2)">
-          ${this._lastSummary.items}項目 ・ クイズ正解 ${this._lastSummary.quizCorrect}/${this._lastSummary.quizTotal} ・ +${this._lastSummary.xp} XP
-        </div>
+        ${this._lastSummary.grammar && this._lastSummary.grammar.length ? `
+          <div class="cmd-row">📐 今日の文法 … <b>${esc(this._lastSummary.grammar.join('、'))}</b></div>` : ''}
+        ${this._lastSummary.parseCount ? `
+          <div class="cmd-row">📖 精読 … <b>${this._lastSummary.parseCount}文</b></div>` : ''}
+        <div class="cmd-row">🎧 音読と定着 … <b>${this._lastSummary.items}項目</b> ／ クイズ ${this._lastSummary.quizCorrect}/${this._lastSummary.quizTotal}</div>
+        <div class="cmd-row">+${this._lastSummary.xp} XP</div>
+        ${this._lastSummary.grammarTotal ? `
+          <div class="cmd-prog">
+            <span>文法の進み具合</span>
+            <div class="bar-mini"><i style="width:${this._lastSummary.grammarDone / this._lastSummary.grammarTotal * 100}%"></i></div>
+            <b>${this._lastSummary.grammarDone} / ${this._lastSummary.grammarTotal} 項目</b>
+          </div>` : ''}
       </div>` : ''}
       <div class="cm-len-grid">
         <button class="cm-len-btn" data-min="20"><b>20分</b><small>短縮版</small></button>
@@ -82,12 +115,43 @@ const Commute = {
 
   buildPlan(minutes) {
     const s = minutes / 60;
-    return [
-      { type: 'shadow', n: Math.max(6, Math.round(16 * s)) },
-      { type: 'flash',  n: Math.max(5, Math.round(12 * s)) },
-      { type: 'drill',  n: Math.max(4, Math.round(9  * s)) },
+    const plan = [];
+
+    /* ① 今日の文法 ── 1日1項目。15項目あるので15日で一巡する */
+    if (typeof GRAMMAR !== 'undefined') plan.push({ type: 'grammar', n: 1 });
+
+    /* ② 精読 ── 文法で覚えた形が実際の文でどう出るかを見る */
+    if (typeof PARSE !== 'undefined' && Object.keys(PARSE).length) {
+      plan.push({ type: 'parse', n: Math.max(1, Math.round(3 * s)) });
+    }
+
+    /* ③〜 音読と定着（従来のステージ） */
+    plan.push(
+      { type: 'shadow', n: Math.max(5, Math.round(14 * s)) },
+      { type: 'flash',  n: Math.max(4, Math.round(10 * s)) },
+      { type: 'drill',  n: Math.max(3, Math.round(8  * s)) },
       { type: 'quiz',   n: Math.max(4, Math.round(8  * s)) },
-    ];
+    );
+    return plan;
+  },
+
+  /* まだ読んでいない項目を優先して配る。全部済んだら「いちばん昔に読んだもの」から復習。
+     grammarRead / parseRead は読んだ順に並んでいて、読み直すと末尾へ回る（下の advance 参照）。
+     だから配列の先頭が「最も久しく触っていないもの」になる。 */
+  pickGrammar(n) {
+    const read = Store.d.grammarRead || [];
+    const fresh = GRAMMAR.filter(g => !read.includes(g.id));
+    if (fresh.length) return fresh.slice(0, n);          /* STEP順に並んでいるので先頭から */
+    return read.map(id => GRAMMAR.find(g => g.id === id)).filter(Boolean).slice(0, n);
+  },
+
+  pickParseSentences(n) {
+    const keys = Object.keys(PARSE);
+    const read = Store.d.parseRead || [];
+    const fresh = keys.filter(k => !read.includes(k));
+    if (fresh.length >= n) return fresh.slice(0, n);
+    const old = read.filter(k => keys.includes(k));      /* 古い順の既読 */
+    return [...fresh, ...old.slice(0, n - fresh.length)];
   },
 
   updateBar() {
@@ -100,13 +164,160 @@ const Commute = {
     if (this.idx >= this.plan.length) return this.finish();
     const st = this.plan[this.idx];
     $('#commute-stage-label').textContent = COMMUTE_STAGE_JA[st.type];
-    if (st.type === 'shadow') this.runShadow(st.n);
+    if (st.type === 'grammar') this.runGrammar(st.n);
+    else if (st.type === 'parse') this.runParse(st.n);
+    else if (st.type === 'shadow') this.runShadow(st.n);
     else if (st.type === 'flash') this.runFlash(st.n);
     else if (st.type === 'drill') this.runDrill(st.n);
     else if (st.type === 'quiz') this.runQuiz(st.n);
   },
 
   nextStage() { this.idx++; this.runStage(); },
+
+  /* ---------- ①今日の文法 ----------
+     要点を読んで、例文を耳で受ける。読み終えたら app.js 側の grammarRead に記録され、
+     「学習の道すじ」の進捗と文法講座のチェックが同時に進む。 */
+  runGrammar(n) {
+    this._gItems = this.pickGrammar(n);
+    this._gIdx = 0;
+    this.showGrammar();
+  },
+
+  showGrammar() {
+    this.clearTimers();
+    if (this._gIdx >= this._gItems.length) return this.nextStage();
+    this.planDone++; this.updateBar();
+
+    const g = this._gItems[this._gIdx];
+    const step = (GRAMMAR_STEPS.find(s => s.n === g.step) || {}).title || '';
+    const read = (Store.d.grammarRead || []).includes(g.id);
+    $('#commute-stage-label').textContent = `今日の文法 ${this._gIdx + 1}/${this._gItems.length}`;
+
+    $('#commute-body').innerHTML = `
+      <div class="cm-stage cm-gram">
+        <div class="cm-cat">STEP ${g.step} · ${esc(step)}${read ? ' · 復習' : ''}</div>
+        <div class="cmg-title">${esc(g.titleJa)}</div>
+        <div class="cmg-en">${esc(g.title)}</div>
+
+        <div class="cmg-why">${g.why}</div>
+
+        <ul class="cmg-rules">
+          ${g.rules.map(r => `<li>${r}</li>`).join('')}
+        </ul>
+
+        <div class="cmg-exs">
+          ${g.ex.slice(0, 2).map((e, i) => `
+            <div class="cmg-ex" data-ex="${i}">
+              <div class="cmge-en">${esc(e.en)}</div>
+              <div class="cmge-ja">${esc(e.ja)}</div>
+              ${e.note ? `<div class="cmge-note">${esc(e.note)}</div>` : ''}
+            </div>`).join('')}
+        </div>
+
+        ${g.trap && g.trap.length ? `
+          <div class="cmg-trap">
+            <div class="gt-bad">✕ ${esc(g.trap[0].bad)}</div>
+            <div class="gt-good">○ ${esc(g.trap[0].good)}</div>
+          </div>` : ''}
+
+        <div class="cm-hint">例文が読み上げられます。声に出せる場所なら真似してみてください</div>
+        <button class="btn-primary" id="cm-gnext">わかった ▶</button>
+      </div>`;
+
+    /* 例文をタップすると聞き直せる */
+    $$('#commute-body .cmg-ex').forEach(el => {
+      el.onclick = () => Speech.say(g.ex[+el.dataset.ex].en, 0.85);
+    });
+
+    const advance = () => {
+      const list = Store.d.grammarRead || (Store.d.grammarRead = []);
+      const i = list.indexOf(g.id);
+      if (i >= 0) { list.splice(i, 1); Store.addXp(4); }   /* 既読 → 末尾へ回して復習の順番を下げる */
+      else Store.addXp(20);
+      list.push(g.id);
+      Store.save();
+      this._gIdx++;
+      this.showGrammar();
+    };
+    $('#cm-gnext').onclick = () => { Speech.stop(); this.clearTimers(); advance(); };
+
+    /* 例文を順に読み上げてから、間を置いて自動で次へ */
+    const lines = g.ex.slice(0, 2).map(e => e.en);
+    Speech.chain(lines, 0.82, () => this.after(3500, advance));
+  },
+
+  /* ---------- ②精読 ----------
+     文をかたまりに割って、部分ごとに聞く。app.js の Parse と同じデータを使う。 */
+  runParse(n) {
+    this._pItems = this.pickParseSentences(n);
+    this._pIdx = 0;
+    this.showParse();
+  },
+
+  showParse() {
+    this.clearTimers();
+    if (this._pIdx >= this._pItems.length) return this.nextStage();
+    this.planDone++; this.updateBar();
+
+    const sentence = this._pItems[this._pIdx];
+    const p = PARSE[sentence];
+    if (!p) { this._pIdx++; return this.showParse(); }
+
+    $('#commute-stage-label').textContent = `精読 ${this._pIdx + 1}/${this._pItems.length}`;
+
+    $('#commute-body').innerHTML = `
+      <div class="cm-stage cm-parse">
+        <div class="cm-cat">かたまりで捉える</div>
+        <div class="cmp-en">${esc(sentence)}</div>
+
+        <div class="p-chunks cmp-chunks">
+          ${p.chunks.map((c, i) => {
+            const r = ROLE_INFO[c.role] || ROLE_INFO.M;
+            return `
+            <button class="pc" data-i="${i}" style="--rc:${r.c}">
+              <span class="pc-role">${r.short}</span>
+              <span class="pc-en">${esc(c.t)}</span>
+              <span class="pc-ja">${esc(c.ja)}</span>
+            </button>`;
+          }).join('<span class="pc-sep">›</span>')}
+        </div>
+
+        <div class="cmp-point">${p.point}</div>
+
+        <div class="cm-hint">かたまりをタップすると、その部分だけ聞けます</div>
+        <button class="btn-primary" id="cm-pnext">次へ ▶</button>
+      </div>`;
+
+    $$('#commute-body .pc').forEach(b => {
+      b.onclick = () => {
+        const c = p.chunks[+b.dataset.i];
+        b.classList.add('hit');
+        setTimeout(() => b.classList.remove('hit'), 700);
+        Speech.say(c.t, 0.7);
+      };
+    });
+
+    const advance = () => {
+      const seen = Store.d.parseRead || (Store.d.parseRead = []);
+      const i = seen.indexOf(sentence);
+      if (i >= 0) { seen.splice(i, 1); Store.addXp(2); }    /* 既読 → 末尾へ回す */
+      else Store.addXp(8);
+      seen.push(sentence);
+      Store.save();
+      this._pIdx++;
+      this.showParse();
+    };
+    $('#cm-pnext').onclick = () => { Speech.stop(); this.clearTimers(); advance(); };
+
+    /* 通しで1回 → かたまりごとに1回 → 通しでもう1回 → 次へ */
+    Speech.say(sentence, 0.82, () => {
+      this.after(600, () => {
+        Speech.chain(p.chunks.map(c => c.t), 0.68, () => {
+          this.after(500, () => Speech.say(sentence, 0.9, () => this.after(2600, advance)));
+        });
+      });
+    });
+  },
 
   /* ---------- 1) シャドーイング ---------- */
   runShadow(n) {
@@ -301,6 +512,11 @@ const Commute = {
       quizCorrect: this._quizCorrectTotal || 0,
       quizTotal: this._quizTotalAll || 0,
       xp: bonus,
+      /* 今日どこまで進んだか */
+      grammar: (this._gItems || []).map(g => g.titleJa),
+      parseCount: (this._pItems || []).length,
+      grammarDone: (Store.d.grammarRead || []).length,
+      grammarTotal: typeof GRAMMAR !== 'undefined' ? GRAMMAR.length : 0,
     };
     Nav.go('commute');
     this.renderSetup(true);
