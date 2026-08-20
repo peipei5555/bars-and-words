@@ -140,6 +140,7 @@ const Speech = {
   rate: 0.9,          /* 標準の速さ。設定で変えられる */
   list: [],           /* 端末で使える英語の声 */
   pinned: null,       /* ペーさんが選んだ声の名前 */
+  _chainId: 0,
 
   /* 声の品質を推定する。iOS/macOS は名前に (Enhanced)/(Premium) が付く */
   quality(v) {
@@ -233,8 +234,10 @@ const Speech = {
 
   /* 複数の文を続けて読む */
   chain(list, rate, done) {
+    const chainId = ++this._chainId;
     let i = 0;
     const next = () => {
+      if (chainId !== this._chainId) return;
       if (i >= list.length) { if (done) done(); return; }
       this.say(list[i++], rate, next);
     };
@@ -242,6 +245,7 @@ const Speech = {
   },
 
   stop() {
+    this._chainId++;
     try { speechSynthesis.cancel(); } catch (e) {}
     if (typeof Beat !== 'undefined') Beat.duck(false);
   },
@@ -374,6 +378,12 @@ const Home = {
     $('#hs-streak').textContent  = d.streak;
     $('#hs-learned').textContent = Object.keys(d.quiz).length + d.readEras.length;
     $('#hs-rate').textContent    = d.answered ? Math.round(d.correct / d.answered * 100) + '%' : '—';
+
+    const preview = $('#topic-preview');
+    if (preview && typeof topicForToday === 'function') {
+      const topic = topicForToday();
+      preview.innerHTML = `<span>${topic.emoji} 今日のジャンル</span><b>${esc(topic.cat)} · ${esc(topic.titleJa)}</b>`;
+    }
 
     /* MC Fresh のステージ */
     const stage = $('#mc-home');

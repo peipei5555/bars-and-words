@@ -10,6 +10,7 @@
 /* 黒坂式の順序（文法・精読が先、多読と音読はその後）に合わせた並び。
    ペーさんが選ぶのは時間だけで、中身は毎日ここから自動で配られる。 */
 const COMMUTE_STAGE_JA = {
+  topic:   '今日の読みもの',
   grammar: '今日の文法',
   parse:   '精読',
   shadow:  'シャドーイング',
@@ -58,11 +59,12 @@ const Commute = {
       ${gTotal ? `
       <div class="cm-today">
         <div class="cmt-h">つぎに配られる内容</div>
-        <div class="cmt-row"><span class="cmt-n">1</span>
+        <div class="cmt-row"><span class="cmt-n">1</span><b>今日の読みもの</b> … 12ジャンルから自動選択</div>
+        <div class="cmt-row"><span class="cmt-n">2</span>
           <b>今日の文法</b>${nextG ? ` … ${esc(nextG.titleJa)}` : ' … 全項目を一巡したので復習に入ります'}</div>
-        <div class="cmt-row"><span class="cmt-n">2</span><b>精読</b> … 文をかたまりに割って構造を見る</div>
-        <div class="cmt-row"><span class="cmt-n">3</span><b>シャドーイング・単語カード・会話ドリル</b></div>
-        <div class="cmt-row"><span class="cmt-n">4</span><b>仕上げクイズ</b></div>
+        <div class="cmt-row"><span class="cmt-n">3</span><b>精読</b> … 文をかたまりに割って構造を見る</div>
+        <div class="cmt-row"><span class="cmt-n">4</span><b>音読・単語・会話</b></div>
+        <div class="cmt-row"><span class="cmt-n">5</span><b>仕上げクイズ</b></div>
         <div class="cmd-prog" style="margin-top:12px">
           <span>文法の進み具合</span>
           <div class="bar-mini"><i style="width:${gDone / gTotal * 100}%"></i></div>
@@ -118,12 +120,15 @@ const Commute = {
 
   buildPlan(minutes, mode = 'commute') {
     if (mode === 'quick') return [
+      { type: 'topic', n: 1 },
       { type: 'flash', n: 3 },
       { type: 'shadow', n: 2 },
       { type: 'quiz', n: 3 },
     ];
     const scale = minutes / 10;
     const plan = [];
+
+    if (typeof TOPICS !== 'undefined') plan.push({ type: 'topic', n: minutes >= 20 ? 2 : 1 });
 
     /* ① 今日の文法 ── 1日1項目。15項目あるので15日で一巡する */
     if (typeof GRAMMAR !== 'undefined') plan.push({ type: 'grammar', n: 1 });
@@ -172,7 +177,8 @@ const Commute = {
     if (this.idx >= this.plan.length) return this.finish();
     const st = this.plan[this.idx];
     $('#commute-stage-label').textContent = COMMUTE_STAGE_JA[st.type];
-    if (st.type === 'grammar') this.runGrammar(st.n);
+    if (st.type === 'topic') this.runTopic(st.n);
+    else if (st.type === 'grammar') this.runGrammar(st.n);
     else if (st.type === 'parse') this.runParse(st.n);
     else if (st.type === 'shadow') this.runShadow(st.n);
     else if (st.type === 'flash') this.runFlash(st.n);
@@ -215,6 +221,39 @@ const Commute = {
     const s = this.savedSession();
     b.hidden = !s;
     if (s) b.textContent = `${s.mode === 'quick' ? 'ちょっと5分' : '今日の英語'}を途中から再開`;
+  },
+
+  /* ---------- 今日の読みもの ---------- */
+  runTopic(n) {
+    const daily = topicForToday();
+    const rest = pickFresh(TOPICS.filter(x => x.id !== daily.id), 'topic', x => x.id, Math.max(0, n - 1));
+    this._tItems = [daily, ...rest];
+    this._tIdx = 0;
+    this.showTopic();
+  },
+
+  showTopic() {
+    this.clearTimers();
+    if (this._tIdx >= this._tItems.length) return this.nextStage();
+    this.planDone++; this.updateBar();
+    const it = this._tItems[this._tIdx];
+    $('#commute-stage-label').textContent = `今日の読みもの ${this._tIdx + 1}/${this._tItems.length}`;
+    $('#commute-body').innerHTML = `
+      <div class="cm-stage cm-topic">
+        <div class="topic-label">${it.emoji} ${esc(it.cat)}</div>
+        <h2>${esc(it.titleJa)}</h2>
+        <div class="topic-lines">${it.sentences.map((s, i) => `
+          <button data-sentence="${i}"><span>${esc(s)}</span><i>▶</i></button>`).join('')}</div>
+        <div class="topic-ja">${esc(it.ja)}</div>
+        <div class="cm-hint">英文をタップすると、その文だけ聞き直せます</div>
+        <button class="btn-primary" id="cm-topic-next">次へ ▶</button>
+      </div>`;
+    $$('#commute-body [data-sentence]').forEach(b => {
+      b.onclick = () => { Speech.stop(); Speech.say(it.sentences[+b.dataset.sentence], 0.86); };
+    });
+    $('#cm-topic-next').onclick = () => { Speech.stop(); this.clearTimers(); this._tIdx++; this.showTopic(); };
+    Store.addXp(5);
+    Speech.chain(it.sentences, 0.82);
   },
 
   /* ---------- ①今日の文法 ----------

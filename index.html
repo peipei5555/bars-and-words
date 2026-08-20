@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Bars & Words">
-<meta name="theme-color" content="#0E0E12">
-<title>Bars &amp; Words — ヒップホップで学ぶ英会話</title>
+<meta name="apple-mobile-web-app-title" content="ともやの家">
+<meta name="theme-color" content="#061A2D">
+<title>ともやの家 — 毎日の英語</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="stylesheet" href="fonts/fonts.css">
@@ -21,9 +21,11 @@
   <section class="screen active" id="screen-home">
     <div class="hero">
       <div class="hero-wall"></div>
-      <div class="hero-tag"><span>EST. 1973</span> BRONX, NY</div>
-      <h1 class="hero-title"><em>BARS</em><i>&amp;</i><em>WORDS</em></h1>
-      <p class="hero-sub">歌詞と歴史から、実際に使える英語へ</p>
+      <div class="house-brand">
+        <img src="icons/icon-180.png" alt="魚のアイコン" width="82" height="82">
+        <div><div class="hero-tag">WELCOME HOME</div><h1 class="hero-title">ともやの家</h1></div>
+      </div>
+      <p class="hero-sub">好きな世界から、使える英語へ。</p>
 
       <div class="rank-row">
         <div class="rank-badge" id="rank-badge">Rookie</div>
@@ -55,7 +57,8 @@
         <span>⚡</span><b>ちょっと5分</b><small>いま一番効く復習</small><strong>START</strong>
       </button>
       <button class="resume-start" id="resume-start-btn" hidden>途中から再開</button>
-      <div class="daily-note" id="daily-note">考えなくてOK。上から順に進めます。</div>
+      <div class="topic-preview" id="topic-preview">今日の読みものを準備中…</div>
+      <div class="daily-note">考えなくてOK。上から順に進めます。</div>
     </div>
 
     <details class="more-learning">
@@ -108,6 +111,8 @@
       <button class="link" data-go="voice">🔊 音声の設定</button>
       <button class="link" data-go="stats">記録を見る</button>
       <button class="link" data-go="about">このアプリについて</button>
+      <button class="link" id="check-update">最新版を確認</button>
+      <span class="app-version">TOMOYA 1.1</span>
     </div>
   </section>
 
@@ -402,6 +407,7 @@
 <script src="data/phrases.js"></script>
 <script src="data/quiz.js"></script>
 <script src="data/commute.js"></script>
+<script src="data/topics.js"></script>
 <script src="data/parse.js"></script>
 <script src="data/grammar.js"></script>
 <script src="beat.js"></script>
@@ -426,6 +432,11 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').then(reg => {
       /* 起動のたびに更新を確認する */
       reg.update().catch(() => {});
+      const updateBtn = document.getElementById('check-update');
+      if (updateBtn) updateBtn.onclick = () => {
+        updateBtn.textContent = '確認中…';
+        reg.update().then(() => { updateBtn.textContent = '最新版です'; }).catch(() => { updateBtn.textContent = '更新確認に失敗'; });
+      };
     }).catch(() => {});
   });
 }
