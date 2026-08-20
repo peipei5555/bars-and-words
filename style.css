@@ -695,6 +695,33 @@ body::before {
 /* ===========================================================
    通勤モード
    =========================================================== */
+.start-panel { padding: 18px 20px 8px; width: 100%; }
+.start-kicker { color: var(--gold); font-family: var(--f-disp); font-size: 13px; letter-spacing: .13em; margin-bottom: 8px; }
+.today-start, .quick-start {
+  width: 100%; display: flex; align-items: center; gap: 12px; text-align: left;
+  color: var(--text); border: 2px solid var(--ink); border-radius: 14px; cursor: pointer;
+  box-shadow: var(--hard); font-family: var(--f-body);
+}
+.today-start { min-height: 94px; padding: 17px; background: linear-gradient(115deg, var(--gold), #d77a34); color: var(--ink); }
+.today-start span { flex: 1; }.today-start b { display:block; font-size: 23px; }.today-start small { display:block; margin-top:4px; font-weight:700; }
+.today-start strong, .quick-start strong { font-family: var(--f-disp); font-size: 22px; letter-spacing: .05em; }
+.today-start:active, .quick-start:active { transform: translate(4px,4px); box-shadow:none; }
+.start-times { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin:10px 0 14px; }
+.start-times button { min-height:42px; border:2px solid var(--ink); border-radius:9px; background:var(--card); color:var(--text-2); font-weight:800; cursor:pointer; }
+.start-times button.on { border-color:var(--gold); color:var(--gold); background:rgba(242,193,61,.1); }
+.quick-start { min-height:64px; padding:13px 15px; background:var(--card); }
+.quick-start b { font-size:17px; }.quick-start small { flex:1; color:var(--text-3); }
+.resume-start { width:100%; margin-top:11px; padding:12px; border:2px solid var(--teal); border-radius:10px; background:rgba(47,217,174,.1); color:var(--teal); font-weight:800; cursor:pointer; }
+.daily-note { color:var(--text-3); font-size:11.5px; text-align:center; margin-top:13px; }
+.more-learning { margin:6px 20px 12px; border-top:1px solid var(--line); }
+.more-learning summary { padding:16px 0; color:var(--text-3); font-size:12px; cursor:pointer; }
+.more-learning .path-cta { width:100%; margin:0 0 12px; }
+.speech-dock { position:sticky; bottom:0; z-index:10; padding:8px 12px calc(8px + env(safe-area-inset-bottom)); background:rgba(14,14,18,.96); border-top:1px solid var(--line); }
+#speech-state { display:block; min-height:19px; color:var(--text-2); font-size:11px; margin-bottom:6px; }
+#speech-state.error { color:var(--ng); }
+.speech-rates { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.speech-rates button { min-height:34px; border:1px solid var(--line); border-radius:7px; background:var(--card); color:var(--text-3); cursor:pointer; }
+.speech-rates button.on { color:var(--ink); background:var(--gold); border-color:var(--gold); font-weight:800; }
 .commute-cta {
   display: flex; align-items: center; gap: 14px;
   width: calc(100% - 40px); margin: 18px 20px 0;

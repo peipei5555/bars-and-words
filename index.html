@@ -40,25 +40,32 @@
 
     <div class="mc-stage" id="mc-home"><!-- MC Fresh（JSが描く） --></div>
 
-    <button class="path-cta" id="path-cta">
-      <span class="pc-ico">🗺️</span>
-      <span class="pc-txt">
-        <b>学習の道すじ</b>
-        <small>文法 → 精読 → 多読 → 音読。どこから手を付けるか迷ったらここ</small>
-      </span>
-      <span class="pc-arw">→</span>
-    </button>
+    <div class="start-panel">
+      <div class="start-kicker">TODAY'S ENGLISH</div>
+      <button class="today-start" id="today-start-btn">
+        <span><b>今日の英語</b><small>通勤10分 · 内容はおまかせ</small></span>
+        <strong>START</strong>
+      </button>
+      <div class="start-times" aria-label="通勤時間を選ぶ">
+        <button data-start-min="5">5分</button>
+        <button data-start-min="10" class="on">10分</button>
+        <button data-start-min="20">20分</button>
+      </div>
+      <button class="quick-start" id="quick-start-btn">
+        <span>⚡</span><b>ちょっと5分</b><small>いま一番効く復習</small><strong>START</strong>
+      </button>
+      <button class="resume-start" id="resume-start-btn" hidden>途中から再開</button>
+      <div class="daily-note" id="daily-note">考えなくてOK。上から順に進めます。</div>
+    </div>
 
-    <button class="commute-cta" id="commute-cta-btn">
-      <span class="cc-ico">🚃</span>
-      <span class="cc-text">
-        <b>通勤モード</b>
-        <small>時間を選んでタップするだけ。あとは自動で進みます</small>
-      </span>
-      <span class="cc-arrow">→</span>
-    </button>
-
-    <nav class="mode-grid">
+    <details class="more-learning">
+      <summary>ほかの教材・記録</summary>
+      <button class="path-cta" id="path-cta">
+        <span class="pc-ico">🗺️</span>
+        <span class="pc-txt"><b>学習の道すじ</b><small>3年間の進み方を確認</small></span>
+        <span class="pc-arw">→</span>
+      </button>
+      <nav class="mode-grid">
       <button class="mode" data-go="history" style="--c:#E0B33C">
         <span class="m-ico">📻</span>
         <b>ワールドツアー</b>
@@ -94,7 +101,8 @@
         <b>TOEIC</b>
         <small>Phase B で追加</small>
       </button>
-    </nav>
+      </nav>
+    </details>
 
     <div class="home-foot">
       <button class="link" data-go="voice">🔊 音声の設定</button>
@@ -339,6 +347,13 @@
       <div class="qcount" id="commute-stage-label">—</div>
     </header>
     <div class="quiz-body" id="commute-body"></div>
+    <div class="speech-dock" id="speech-dock">
+      <span id="speech-state">🔊 再生準備OK</span>
+      <div class="speech-rates" aria-label="読み上げ速度">
+        <button data-rate="0.75">0.75</button><button data-rate="1" class="on">1.0</button>
+        <button data-rate="1.25">1.25</button><button data-rate="1.5">1.5</button>
+      </div>
+    </div>
   </section>
 
   <!-- ================= BGM（全画面共通で右下に出る） ================= -->

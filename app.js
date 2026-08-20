@@ -209,7 +209,8 @@ const Speech = {
 
   /* rate は「この場面での相対的な速さ」。設定した基準速度に掛ける */
   say(text, rate = 0.9, onend) {
-    if (!('speechSynthesis' in window)) { if (onend) onend(); return; }
+    const state = (value, error = '') => document.dispatchEvent(new CustomEvent('speech-state', { detail: { state: value, error } }));
+    if (!('speechSynthesis' in window)) { state('error', 'このブラウザは読み上げに対応していません'); if (onend) onend(); return; }
     try {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
@@ -222,11 +223,12 @@ const Speech = {
       const hasBeat = typeof Beat !== 'undefined';
       if (hasBeat) Beat.duck(true);
       const release = () => { if (hasBeat) Beat.duck(false); };
-      u.onend = () => { release(); if (onend) onend(); };
-      u.onerror = () => { release(); if (onend) onend(); };
+      u.onstart = () => state('playing');
+      u.onend = () => { release(); state('ready'); if (onend) onend(); };
+      u.onerror = e => { release(); state('error', e.error === 'canceled' ? '' : '音声を再生できませんでした'); if (onend) onend(); };
 
       speechSynthesis.speak(u);
-    } catch (e) { if (typeof Beat !== 'undefined') Beat.duck(false); if (onend) onend(); }
+    } catch (e) { state('error', '音声を再生できませんでした'); if (typeof Beat !== 'undefined') Beat.duck(false); if (onend) onend(); }
   },
 
   /* 複数の文を続けて読む */

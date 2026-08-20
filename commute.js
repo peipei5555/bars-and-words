@@ -33,7 +33,7 @@ function pickFresh(pool, ns, keyOf, n) {
 }
 
 const Commute = {
-  plan: [], idx: 0, planTotal: 0, planDone: 0, minutes: 60,
+  plan: [], idx: 0, planTotal: 0, planDone: 0, minutes: 10, mode: 'commute',
   _timers: [],
   _lastSummary: null,
 
@@ -86,35 +86,43 @@ const Commute = {
           </div>` : ''}
       </div>` : ''}
       <div class="cm-len-grid">
-        <button class="cm-len-btn" data-min="20"><b>20分</b><small>短縮版</small></button>
-        <button class="cm-len-btn" data-min="40"><b>40分</b><small>標準</small></button>
-        <button class="cm-len-btn" data-min="60"><b>60分</b><small>通勤フル</small></button>
+        <button class="cm-len-btn" data-min="5"><b>5分</b><small>最短</small></button>
+        <button class="cm-len-btn" data-min="10"><b>10分</b><small>標準</small></button>
+        <button class="cm-len-btn" data-min="20"><b>20分</b><small>しっかり</small></button>
       </div>
       <p class="lead" style="margin-top:20px">電車内では<b>声を出さず、口の動きだけ</b>でOKです。
       声に出す練習は、家や駅までの徒歩の時間にどうぞ。</p>
       <div class="pad"></div>`;
 
     $$('#commute-setup .cm-len-btn').forEach(b => {
-      b.onclick = () => this.start(+b.dataset.min);
+      b.onclick = () => this.start(+b.dataset.min, 'commute');
     });
   },
 
   /* ---------- セッション開始 ---------- */
-  start(minutes) {
+  start(minutes, mode = 'commute') {
     this.minutes = minutes;
-    this.plan = this.buildPlan(minutes);
+    this.mode = mode;
+    this.plan = this.buildPlan(minutes, mode);
     this.planTotal = this.plan.reduce((s, x) => s + x.n, 0);
     this.planDone = 0;
     this.idx = 0;
     this._quizCorrectTotal = 0;
     this._quizTotalAll = 0;
+    this._gItems = []; this._pItems = [];
+    this.saveSession();
     Store.touchToday();
     Nav.go('commute-run');
     this.runStage();
   },
 
-  buildPlan(minutes) {
-    const s = minutes / 60;
+  buildPlan(minutes, mode = 'commute') {
+    if (mode === 'quick') return [
+      { type: 'flash', n: 3 },
+      { type: 'shadow', n: 2 },
+      { type: 'quiz', n: 3 },
+    ];
+    const scale = minutes / 10;
     const plan = [];
 
     /* ① 今日の文法 ── 1日1項目。15項目あるので15日で一巡する */
@@ -122,15 +130,15 @@ const Commute = {
 
     /* ② 精読 ── 文法で覚えた形が実際の文でどう出るかを見る */
     if (typeof PARSE !== 'undefined' && Object.keys(PARSE).length) {
-      plan.push({ type: 'parse', n: Math.max(1, Math.round(3 * s)) });
+      plan.push({ type: 'parse', n: Math.max(1, Math.round(scale)) });
     }
 
     /* ③〜 音読と定着（従来のステージ） */
     plan.push(
-      { type: 'shadow', n: Math.max(5, Math.round(14 * s)) },
-      { type: 'flash',  n: Math.max(4, Math.round(10 * s)) },
-      { type: 'drill',  n: Math.max(3, Math.round(8  * s)) },
-      { type: 'quiz',   n: Math.max(4, Math.round(8  * s)) },
+      { type: 'shadow', n: Math.max(2, Math.round(3 * scale)) },
+      { type: 'flash',  n: Math.max(2, Math.round(3 * scale)) },
+      { type: 'drill',  n: Math.max(1, Math.round(2 * scale)) },
+      { type: 'quiz',   n: Math.max(2, Math.round(3 * scale)) },
     );
     return plan;
   },
@@ -172,7 +180,42 @@ const Commute = {
     else if (st.type === 'quiz') this.runQuiz(st.n);
   },
 
-  nextStage() { this.idx++; this.runStage(); },
+  nextStage() { this.idx++; this.saveSession(); this.runStage(); },
+
+  saveSession() {
+    try {
+      localStorage.setItem('bars-words-session', JSON.stringify({
+        minutes: this.minutes, mode: this.mode, plan: this.plan, idx: this.idx,
+        planDone: this.planDone, savedAt: Date.now(),
+      }));
+    } catch (e) {}
+    this.updateResumeButton();
+  },
+
+  savedSession() {
+    try {
+      const s = JSON.parse(localStorage.getItem('bars-words-session'));
+      return s && Array.isArray(s.plan) && s.idx < s.plan.length ? s : null;
+    } catch (e) { return null; }
+  },
+
+  resume() {
+    const s = this.savedSession();
+    if (!s) return this.start(10, 'commute');
+    this.minutes = s.minutes; this.mode = s.mode || 'commute'; this.plan = s.plan;
+    this.idx = s.idx; this.planDone = s.planDone || 0;
+    this.planTotal = this.plan.reduce((sum, item) => sum + item.n, 0);
+    this._quizCorrectTotal = 0; this._quizTotalAll = 0;
+    Nav.go('commute-run'); this.updateBar(); this.runStage();
+  },
+
+  updateResumeButton() {
+    const b = $('#resume-start-btn');
+    if (!b) return;
+    const s = this.savedSession();
+    b.hidden = !s;
+    if (s) b.textContent = `${s.mode === 'quick' ? 'ちょっと5分' : '今日の英語'}を途中から再開`;
+  },
 
   /* ---------- ①今日の文法 ----------
      要点を読んで、例文を耳で受ける。読み終えたら app.js 側の grammarRead に記録され、
@@ -437,7 +480,18 @@ const Commute = {
 
   /* ---------- 4) 仕上げクイズ（q() / shuffleWith() は app.js のものを再利用） ---------- */
   runQuiz(n) {
-    const items = pickFresh(DRILLS, 'commuteq', x => x.en, n);
+    let items;
+    if (this.mode === 'quick') {
+      const ranked = [...DRILLS].sort((a, b) => {
+        const ar = Store.d.quiz['commuteq:' + a.en] || { ok: 0, ng: 0 };
+        const br = Store.d.quiz['commuteq:' + b.en] || { ok: 0, ng: 0 };
+        return (br.ng * 3 - br.ok) - (ar.ng * 3 - ar.ok);
+      });
+      const weak = ranked.filter(x => (Store.d.quiz['commuteq:' + x.en] || {}).ng).slice(0, n);
+      items = [...weak, ...pickFresh(ranked.filter(x => !weak.includes(x)), 'commuteq', x => x.en, n - weak.length)];
+    } else {
+      items = pickFresh(DRILLS, 'commuteq', x => x.en, n);
+    }
     this._qItems = items.map(d => {
       const others = sample(DRILLS.filter(x => x.en !== d.en), Math.min(3, DRILLS.length - 1));
       return q({
@@ -506,6 +560,7 @@ const Commute = {
     const bonus = 30;
     Store.addXp(bonus);
     Store.d.commuteSessions = (Store.d.commuteSessions || 0) + 1;
+    try { localStorage.removeItem('bars-words-session'); } catch (e) {}
     Store.save();
     this._lastSummary = {
       items: this.planTotal,
@@ -528,6 +583,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const cta = $('#commute-cta-btn');
   if (cta) cta.onclick = () => { Nav.go('commute'); Commute.renderSetup(false); };
 
+  const today = $('#today-start-btn');
+  if (today) today.onclick = () => Commute.start(+(today.dataset.minutes || 10), 'commute');
+  $$('.start-times [data-start-min]').forEach(b => {
+    b.onclick = () => {
+      $$('.start-times [data-start-min]').forEach(x => x.classList.toggle('on', x === b));
+      if (today) { today.dataset.minutes = b.dataset.startMin; today.querySelector('small').textContent = `通勤${b.dataset.startMin}分 · 内容はおまかせ`; }
+    };
+  });
+  const quick = $('#quick-start-btn');
+  if (quick) quick.onclick = () => Commute.start(5, 'quick');
+  const resume = $('#resume-start-btn');
+  if (resume) resume.onclick = () => Commute.resume();
+  Commute.updateResumeButton();
+
+  $$('.speech-rates [data-rate]').forEach(b => {
+    b.onclick = () => {
+      Speech.setRate(+b.dataset.rate);
+      $$('.speech-rates [data-rate]').forEach(x => x.classList.toggle('on', x === b));
+      const state = $('#speech-state'); if (state) state.textContent = `🔊 速度 ${b.dataset.rate}倍`;
+    };
+  });
+  document.addEventListener('speech-state', e => {
+    const el = $('#speech-state'); if (!el) return;
+    const d = e.detail || {};
+    el.className = d.state === 'error' && d.error ? 'error' : '';
+    el.textContent = d.state === 'playing' ? '🔊 再生中' : d.state === 'error' && d.error ? `⚠ ${d.error}` : '🔊 再生準備OK';
+  });
+
   const quit = $('#commute-quit');
-  if (quit) quit.onclick = () => { Speech.stop(); Commute.clearTimers(); Nav.go('home'); };
+  if (quit) quit.onclick = () => { Speech.stop(); Commute.clearTimers(); Commute.saveSession(); Nav.go('home'); };
 });

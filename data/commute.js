@@ -13,6 +13,9 @@ const COMMUTE_CATS = {
   travel: { emoji: '✈️', ja: '移動' },
   work:   { emoji: '💼', ja: '仕事の話' },
   eat:    { emoji: '🍽️', ja: '食事・買い物' },
+  culture: { emoji: '🎨', ja: 'ヒップホップ・アート' },
+  craft:   { emoji: '👞', ja: '革・靴・アパレル' },
+  tech:    { emoji: '🤖', ja: 'AI・Blender・3D' },
 };
 
 /* シャドーイング用の短いフレーズ。TTSが読み上げ、声を出さず口だけ追いかける用途 */
@@ -62,6 +65,15 @@ const SHADOW = [
   { cat: 'eat', en: "Do you have anything without seafood?", ja: "魚介が入っていないものはありますか？" },
   { cat: 'eat', en: "Could we get the check, please?", ja: "お会計をお願いします。" },
   { cat: 'eat', en: "This is delicious, thank you.", ja: "これ美味しいです、ありがとう。" },
+  // adult interests (all original sentences)
+  { cat: 'culture', en: "Hip-hop turned everyday language into a global art form.", ja: "ヒップホップは日常の言葉を世界的な芸術表現に変えました。" },
+  { cat: 'culture', en: "The artist uses empty space to make the colors feel stronger.", ja: "その作家は余白を使って色をより強く感じさせます。" },
+  { cat: 'craft', en: "This leather gets softer and darker with age.", ja: "この革は使い込むと柔らかく、色が深くなります。" },
+  { cat: 'craft', en: "The pattern needs more room around the toe joint.", ja: "このパターンはボール周りにもう少しゆとりが必要です。" },
+  { cat: 'craft', en: "Many fashion brands began with one clear point of view.", ja: "多くのファッションブランドは、ひとつの明確な視点から始まりました。" },
+  { cat: 'tech', en: "AI can speed up research, but the final judgment is still ours.", ja: "AIは調査を速められますが、最終判断は人間が行います。" },
+  { cat: 'tech', en: "I use Blender to test camera movement before production.", ja: "本制作の前にBlenderでカラワークを検証します。" },
+  { cat: 'tech', en: "A clean topology makes later changes much easier.", ja: "整ったトポロジーは後の修正をずっと楽にします。" },
 ];
 
 /* 会話ドリル：日本語のお題を見て、まず自分で英語を組み立ててみる → お手本と比較 */
@@ -121,4 +133,10 @@ const DRILLS = [
     en: "Could we get the bill, please?", ja: "お会計をお願いできますか？" },
   { cat: 'eat', cueJa: "食事の後、お店の人にお礼を言って。",
     en: "That was great, thank you very much.", ja: "とても美味しかったです、ありがとうございました。" },
+  { cat: 'culture', cueJa: "展覧で作品の色使いが好きだと伝えて。",
+    en: "I really like the way the artist uses color.", ja: "この作家の色の使い方がとても好きです。" },
+  { cat: 'craft', cueJa: "海外工場に、サンプルの仕上がりを確認したいと伝えて。",
+    en: "I'd like to check the sample quality before production.", ja: "生産前にサンプルの仕上がりを確認したいです。" },
+  { cat: 'tech', cueJa: "3D制作でこの方法を選んだ理由を簡単に伝えて。",
+    en: "I chose this method because it gives me more control.", ja: "より細かく制御できるので、この方法を選びました。" },
 ];
