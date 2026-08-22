@@ -112,7 +112,7 @@
       <button class="link" data-go="stats">記録を見る</button>
       <button class="link" data-go="about">このアプリについて</button>
       <button class="link" id="check-update">最新版を確認</button>
-      <span class="app-version">TOMOYA 1.1</span>
+      <span class="app-version">TOMOYA 1.2</span>
     </div>
   </section>
 
@@ -159,11 +159,11 @@
       <h1>音声の設定</h1>
     </header>
 
-    <p class="lead">読み上げが聞き取りづらいときは、ここで<b>声を変える／速さを落とす</b>と改善します。
-      端末に入っている声を使っているので、選べる中身は端末によって違います。</p>
+    <p class="lead"><b>学習で使う英文は、聞き取りやすいOpenAI音声を収録済みです。</b>
+      端末の声は、未収録の英文だけに使う予備音声です。</p>
 
     <div class="vset">
-      <h2>いま使っている声</h2>
+      <h2>予備音声の設定</h2>
       <div class="vnow" id="v-now">—</div>
 
       <div class="vrow">
@@ -173,18 +173,18 @@
 
       <h2>速さ</h2>
       <label class="vslider">
-        <input type="range" id="v-rate" min="50" max="130" step="5" value="90">
+        <input type="range" id="v-rate" min="75" max="150" step="5" value="90">
         <span id="v-rate-label">×0.90</span>
       </label>
-      <p class="vhint">ゆっくりにすると、単語の区切りが聞き取りやすくなります。0.7〜0.8 あたりが練習向きです。</p>
+      <p class="vhint">ゆっくりにすると、単語の区切りが聞き取りやすくなります。0.75〜0.9 あたりが練習向きです。</p>
 
       <h2>声を選ぶ</h2>
       <div class="vlist" id="v-list"></div>
 
       <div class="vtip" id="v-tip">
-        <h3>iPhoneで音質を上げる（一番効きます）</h3>
-        <p>iPhoneの初期状態の英語音声は、容量を抑えた「軽量版」で音が粗いです。
-          <b>高品質版を追加でダウンロードすると、別物になります。</b>無料です。</p>
+        <h3>未収録の英文を聞く場合</h3>
+        <p>通常の「今日の英語」と「ちょっと5分」は収録済み音声を使います。
+          以下は予備音声も聞きやすくしたい場合だけ設定してください。</p>
         <ol>
           <li>iPhoneの「設定」アプリを開く</li>
           <li><b>アクセシビリティ</b> → <b>読み上げコンテンツ</b> → <b>声</b></li>
@@ -410,6 +410,7 @@
 <script src="data/topics.js"></script>
 <script src="data/parse.js"></script>
 <script src="data/grammar.js"></script>
+<script src="audio/manifest.js"></script>
 <script src="beat.js"></script>
 <script src="app.js"></script>
 <script src="commute.js"></script>

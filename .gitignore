@@ -1,0 +1,22 @@
+# ローカルで比較用に生成した旧音声。OpenAI版はaudio/openai/に置く。
+/audio/*.mp3
+/tools/generate-audio.mjs
+/tools/generate-edge-audio.mjs
+
+# 中断した旧生成で残った未参照ファイル（元データ保護のため削除しない）。
+/audio/openai/1ad26749453e0254eba9.mp3
+/audio/openai/23090f77350b529ce842.mp3
+/audio/openai/2367520dd3c0294f7d7a.mp3
+/audio/openai/25ae42cf758daaaae59b.mp3
+/audio/openai/5e0192e24a1db6063919.mp3
+/audio/openai/730cba4f777ec0f40e3c.mp3
+/audio/openai/8765d9ac3ef82822e439.mp3
+/audio/openai/8d9c671438038c650ea2.mp3
+/audio/openai/d01ab7da055629f254b5.mp3
+/audio/openai/ddf556ff62be425903d8.mp3
+/audio/openai/ebfd44d0f048b10b6cdf.mp3
+/audio/openai/f60dfd6bedec2433c634.mp3
+
+# APIキーはリポジトリへ入れない。
+.env
+.env.*

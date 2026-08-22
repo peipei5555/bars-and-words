@@ -6,7 +6,9 @@
    ・アプリを更新したら CACHE の版数を上げること。古いキャッシュは自動で消える
    =========================================================== */
 
-const CACHE = 'tomoya-house-v9';
+importScripts('./audio/files.js');
+
+const CACHE = 'tomoya-house-v12';
 
 /* すべて相対パス。GitHub Pages のサブディレクトリ配信でもそのまま動く */
 const ASSETS = [
@@ -34,6 +36,9 @@ const ASSETS = [
   './data/topics.js',
   './data/parse.js',
   './data/grammar.js',
+  './audio/manifest.js',
+  './audio/files.js',
+  ...(self.AUDIO_FILES || []),
 
   './icons/icon-32.png',
   './icons/icon-180.png',
@@ -44,8 +49,10 @@ const ASSETS = [
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const c = await caches.open(CACHE);
-    /* 1つ失敗しても全体を巻き添えにしない */
-    await Promise.all(ASSETS.map(u => c.add(u).catch(() => {})));
+    /* 音声を一斉要求せず、小分けで安定して保存する。1件の失敗で全体を止めない */
+    for (let i = 0; i < ASSETS.length; i += 12) {
+      await Promise.all(ASSETS.slice(i, i + 12).map(u => c.add(u).catch(() => {})));
+    }
     self.skipWaiting();
   })());
 });

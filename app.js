@@ -141,6 +141,8 @@ const Speech = {
   list: [],           /* 端末で使える英語の声 */
   pinned: null,       /* ペーさんが選んだ声の名前 */
   _chainId: 0,
+  _audio: null,
+  _utterance: null,
 
   /* 声の品質を推定する。iOS/macOS は名前に (Enhanced)/(Premium) が付く */
   quality(v) {
@@ -211,10 +213,53 @@ const Speech = {
   /* rate は「この場面での相対的な速さ」。設定した基準速度に掛ける */
   say(text, rate = 0.9, onend) {
     const state = (value, error = '') => document.dispatchEvent(new CustomEvent('speech-state', { detail: { state: value, error } }));
+    this.stopPlayback();
+    const natural = typeof AUDIO_MANIFEST !== 'undefined' && AUDIO_MANIFEST[text];
+    if (natural) {
+      const audio = new Audio(natural);
+      this._audio = audio;
+      let settled = false;
+      audio.preload = 'auto';
+      audio.playbackRate = Math.max(0.75, Math.min(1.5, (rate / 0.9) * this.rate));
+      const hasBeat = typeof Beat !== 'undefined';
+      if (hasBeat) Beat.duck(true);
+      const finish = (error = '') => {
+        if (settled || this._audio !== audio) return;
+        settled = true;
+        if (this._audio === audio) this._audio = null;
+        if (hasBeat) Beat.duck(false);
+        state(error ? 'error' : 'ready', error);
+        if (onend) onend();
+      };
+      audio.onplaying = () => { if (this._audio === audio) state('playing'); };
+      audio.onended = () => finish();
+      audio.onerror = () => {
+        if (settled || this._audio !== audio) return;
+        settled = true;
+        if (this._audio === audio) this._audio = null;
+        if (hasBeat) Beat.duck(false);
+        this.sayFallback(text, rate, onend, state);
+      };
+      state('loading');
+      audio.play().catch(() => {
+        if (settled || this._audio !== audio) return;
+        settled = true;
+        if (this._audio === audio) this._audio = null;
+        if (hasBeat) Beat.duck(false);
+        this.sayFallback(text, rate, onend, state);
+      });
+      return;
+    }
+    this.sayFallback(text, rate, onend, state);
+  },
+
+  /* 自然音声がまだ無い教材だけ、端末音声へ戻す */
+  sayFallback(text, rate = 0.9, onend, state = (value, error = '') => document.dispatchEvent(new CustomEvent('speech-state', { detail: { state: value, error } }))) {
     if (!('speechSynthesis' in window)) { state('error', 'このブラウザは読み上げに対応していません'); if (onend) onend(); return; }
     try {
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
+      this._utterance = u;
       u.lang = (this.voice && this.voice.lang) || 'en-US';
       u.rate = Math.max(0.4, Math.min(1.6, (rate / 0.9) * this.rate));
       if (this.voice) u.voice = this.voice;
@@ -223,13 +268,22 @@ const Speech = {
          ※ Beat は const 宣言なので window に載らない。typeof で見ること */
       const hasBeat = typeof Beat !== 'undefined';
       if (hasBeat) Beat.duck(true);
-      const release = () => { if (hasBeat) Beat.duck(false); };
-      u.onstart = () => state('playing');
-      u.onend = () => { release(); state('ready'); if (onend) onend(); };
-      u.onerror = e => { release(); state('error', e.error === 'canceled' ? '' : '音声を再生できませんでした'); if (onend) onend(); };
+      const release = () => {
+        if (this._utterance !== u) return false;
+        this._utterance = null;
+        if (hasBeat) Beat.duck(false);
+        return true;
+      };
+      u.onstart = () => { if (this._utterance === u) state('playing'); };
+      u.onend = () => { if (!release()) return; state('ready'); if (onend) onend(); };
+      u.onerror = e => {
+        if (!release() || e.error === 'canceled') return;
+        state('error', '音声を再生できませんでした');
+        if (onend) onend();
+      };
 
       speechSynthesis.speak(u);
-    } catch (e) { state('error', '音声を再生できませんでした'); if (typeof Beat !== 'undefined') Beat.duck(false); if (onend) onend(); }
+    } catch (e) { this._utterance = null; state('error', '音声を再生できませんでした'); if (typeof Beat !== 'undefined') Beat.duck(false); if (onend) onend(); }
   },
 
   /* 複数の文を続けて読む */
@@ -246,6 +300,26 @@ const Speech = {
 
   stop() {
     this._chainId++;
+    this.stopPlayback();
+  },
+
+  stopPlayback() {
+    if (this._audio) {
+      try {
+        this._audio.onplaying = null;
+        this._audio.onended = null;
+        this._audio.onerror = null;
+        this._audio.pause();
+        this._audio.currentTime = 0;
+      } catch (e) {}
+      this._audio = null;
+    }
+    if (this._utterance) {
+      this._utterance.onstart = null;
+      this._utterance.onend = null;
+      this._utterance.onerror = null;
+      this._utterance = null;
+    }
     try { speechSynthesis.cancel(); } catch (e) {}
     if (typeof Beat !== 'undefined') Beat.duck(false);
   },
@@ -266,7 +340,7 @@ const Speech = {
   },
 
   setRate(r) {
-    this.rate = Math.max(0.5, Math.min(1.3, r));
+    this.rate = Math.max(0.75, Math.min(1.5, r));
     this.save();
   },
 };

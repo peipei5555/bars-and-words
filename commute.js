@@ -487,12 +487,14 @@ const Commute = {
     $('#commute-body').innerHTML = `
       <div class="cm-drill">
         <div class="cm-cat">${it.cat ? COMMUTE_CATS[it.cat].emoji + ' ' + esc(COMMUTE_CATS[it.cat].ja) : ''}</div>
+        ${it.setup ? `<div class="cm-setup">${esc(it.setup)}</div>` : ''}
+        ${it.partner ? `<div class="cm-partner"><span>相手</span><b>${esc(it.partner)}</b><small>${esc(it.partnerJa || '')}</small></div>` : ''}
         <div class="cm-cue">${esc(it.cueJa)}</div>
         <div class="cm-hint">頭の中で（小声でもOK）英語にしてみてください</div>
         <button class="btn-primary" id="cm-reveal2">お手本を見る</button>
       </div>`;
     $('#cm-reveal2').onclick = () => this.revealDrill();
-    this.after(8000, () => this.revealDrill());
+    if (it.partner) Speech.say(it.partner, 0.9);
   },
   revealDrill() {
     this.clearTimers();
@@ -504,16 +506,22 @@ const Commute = {
     if (btn) btn.remove();
     body.insertAdjacentHTML('beforeend', `
       <div class="cm-answer">
+        <div class="cm-speaker">あなた</div>
         <div class="cm-en">${esc(it.en)}</div>
         <div class="cm-ja">${esc(it.ja)}</div>
         ${it.note ? `<div class="cm-note">${esc(it.note)}</div>` : ''}
+        ${it.reply ? `<div class="cm-partner cm-partner-reply"><span>相手の返し</span><b>${esc(it.reply)}</b><small>${esc(it.replyJa || '')}</small></div>` : ''}
       </div>`);
     Store.addXp(3);
-    Speech.say(it.en, 0.85, () => {
+    const readyNext = () => {
       body.insertAdjacentHTML('beforeend', `<button class="btn-ghost small" id="cm-drill-next">次へ ▶</button>`);
       const nb = $('#cm-drill-next');
       if (nb) nb.onclick = () => { this._dIdx++; this.showDrill(); };
-      this.after(4500, () => { this._dIdx++; this.showDrill(); });
+      this.after(8000, () => { this._dIdx++; this.showDrill(); });
+    };
+    Speech.say(it.en, 0.85, () => {
+      if (it.reply) this.after(450, () => Speech.say(it.reply, 0.9, readyNext));
+      else readyNext();
     });
   },
 
@@ -535,7 +543,7 @@ const Commute = {
       const others = sample(DRILLS.filter(x => x.en !== d.en), Math.min(3, DRILLS.length - 1));
       return q({
         kind: '通勤 · ' + COMMUTE_CATS[d.cat].ja,
-        text: d.cueJa, small: true, sub: '英語でどう言う？',
+        text: d.partnerJa ? `相手「${d.partnerJa}」\n${d.cueJa}` : d.cueJa, small: true, sub: '英語でどう返す？',
         choices: shuffleWith(d, others, x => x.en),
         right: d.en,
         note: `${esc(d.ja)}${d.note ? '<br>' + esc(d.note) : ''}`,
@@ -647,7 +655,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = $('#speech-state'); if (!el) return;
     const d = e.detail || {};
     el.className = d.state === 'error' && d.error ? 'error' : '';
-    el.textContent = d.state === 'playing' ? '🔊 再生中' : d.state === 'error' && d.error ? `⚠ ${d.error}` : '🔊 再生準備OK';
+    el.textContent = d.state === 'loading' ? '◌ 音声を読み込み中' : d.state === 'playing' ? '🔊 再生中' : d.state === 'error' && d.error ? `⚠ ${d.error}` : '🔊 再生準備OK';
   });
 
   const quit = $('#commute-quit');
