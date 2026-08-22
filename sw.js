@@ -8,7 +8,7 @@
 
 importScripts('./audio/files.js');
 
-const CACHE = 'tomoya-house-v12';
+const CACHE = 'tomoya-house-v13';
 
 /* すべて相対パス。GitHub Pages のサブディレクトリ配信でもそのまま動く */
 const ASSETS = [
@@ -26,7 +26,7 @@ const ASSETS = [
   './fonts/anton-3.woff2',
   './fonts/marker-1.woff2',
 
-  './data/character.js',
+  './data/tomoya.js',
   './data/history.js',
   './data/slang.js',
   './data/pronunciation.js',

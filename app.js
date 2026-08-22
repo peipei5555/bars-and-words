@@ -73,7 +73,7 @@ const Store = {
     this.save();
     return {
       ok: true,
-      msg: `復元しました。XP ${d.xp} ／ ツアー ${d.clearedEras.length}/${ERAS.length} クリア`,
+      msg: `復元しました。XP ${d.xp} ／ 時代めぐり ${d.clearedEras.length}/${ERAS.length} 完了`,
     };
   },
 
@@ -107,13 +107,13 @@ function ymd(dt) {
    2. ランク
    ----------------------------------------------------------- */
 const RANKS = [
-  { at: 0,    name: 'Rookie',        ja: '入門' },
-  { at: 100,  name: 'Crate Digger',  ja: 'レコード漁り' },
-  { at: 300,  name: 'Selector',      ja: '選盤者' },
-  { at: 600,  name: 'Head',          ja: '通' },
-  { at: 1000, name: 'Scholar',       ja: '研究者' },
-  { at: 1800, name: 'OG',            ja: '古参' },
-  { at: 3000, name: 'GOAT',          ja: '史上最高' },
+  { at: 0,    name: 'はじめの一歩', ja: '入門' },
+  { at: 100,  name: '水辺の探索者', ja: '探索' },
+  { at: 300,  name: '耳が育つ人',   ja: '聞き手' },
+  { at: 600,  name: '英文の読み手', ja: '読み手' },
+  { at: 1000, name: '言葉の研究者', ja: '研究者' },
+  { at: 1800, name: '会話の旅人',   ja: '会話' },
+  { at: 3000, name: '英語の案内人', ja: '習熟' },
 ];
 
 const Rank = {
@@ -459,7 +459,7 @@ const Home = {
       preview.innerHTML = `<span>${topic.emoji} 今日のジャンル</span><b>${esc(topic.cat)} · ${esc(topic.titleJa)}</b>`;
     }
 
-    /* MC Fresh のステージ */
+    /* 魚のともやの案内スペース */
     const stage = $('#mc-home');
     if (stage) {
       const n = Store.d.clearedEras.length;
@@ -471,8 +471,8 @@ const Home = {
             <div class="mc-bubble" id="mc-home-bubble">${esc(mcLine(MC_LINES.home))}</div>
             <div class="mc-name">${MC_NAME}</div>
             <button class="mc-tour-chip" data-go="history">
-              🎤 TOUR <b>${n}/${ERAS.length}</b> CLEAR
-              <span>${n >= ERAS.length ? '全時代制覇！' : '次: ' + esc(cur.titleJa)}</span>
+              🌊 時代めぐり <b>${n}/${ERAS.length}</b> 完了
+              <span>${n >= ERAS.length ? '全時代を読み終えました' : '次: ' + esc(cur.titleJa)}</span>
             </button>
           </div>
         </div>`;
@@ -497,24 +497,24 @@ const History = {
       <div class="tour-head">
         <div class="mc-figure sm">${mcSvg(Tour.outfit())}</div>
         <div class="mc-bubble">${n >= ERAS.length
-          ? 'World Tour 制覇！ あんたが GOAT だ🐐'
+          ? '全時代を読み終えたね。文化の流れが一本につながったよ。'
           : esc(MC_LINES.era[ERAS[curIdx].id] || mcLine(MC_LINES.home))}</div>
       </div>
       <div class="tour-progress">
-        <span>WORLD TOUR</span><b>${n} / ${ERAS.length} CLEAR</b>
+        <span>英語で時代めぐり</span><b>${n} / ${ERAS.length} 完了</b>
       </div>` +
       ERAS.map((e, i) => {
         const cleared = Tour.cleared(e.id);
         const unlocked = Tour.unlocked(i);
         const read = Store.d.readEras.includes(e.id);
         const state = cleared ? 'clear' : (!unlocked ? 'locked' : (i === curIdx ? 'now' : ''));
-        const badge = cleared ? '<span class="tl-done">✓ CLEAR</span>'
+        const badge = cleared ? '<span class="tl-done">✓ 完了</span>'
                     : !unlocked ? '<span class="tl-lock">🔒</span>'
-                    : `<span class="tl-now">▶ ${read ? 'バトルに挑む' : 'いまここ'}</span>`;
+                    : `<span class="tl-now">▶ ${read ? '確認クイズへ' : 'いまここ'}</span>`;
         return `
       <button class="tl-item ${state}" data-era="${e.id}" data-stage="${i + 1}" style="--c:${e.color}" ${unlocked ? '' : 'disabled'}>
         ${badge}
-        <div class="tl-years">STAGE ${i + 1} · ${esc(e.years)}</div>
+        <div class="tl-years">第${i + 1}章 · ${esc(e.years)}</div>
         <div class="tl-title">${esc(e.title)}</div>
         <div class="tl-ja">${esc(e.titleJa)}</div>
         <div class="tl-place">${esc(e.place)}</div>
@@ -535,7 +535,7 @@ const Era = {
     const e = ERAS[idx];
     if (!e || !Tour.unlocked(idx)) return;
     this.cur = e;
-    $('#era-h1').textContent = `STAGE ${idx + 1}`;
+    $('#era-h1').textContent = `第${idx + 1}章`;
 
     const done = Store.d.readEras.includes(e.id);
     const cleared = Tour.cleared(e.id);
@@ -619,12 +619,12 @@ const Era = {
       <div class="pad center" style="flex-direction:column;gap:10px">
         ${!done ? `
           <button class="btn-primary" id="era-done" style="width:100%">読み終えた（+30 XP）</button>
-          <div class="battle-hint">読み終えると ⚔️ エラバトルに挑戦できます</div>`
+          <div class="battle-hint">読み終えると、短い確認クイズに進めます</div>`
         : `
           <button class="${cleared ? 'btn-ghost' : 'btn-primary'} battle-btn" id="era-battle" style="width:100%">
-            ⚔️ ${cleared ? 'バトル再挑戦（クリア済み）' : 'エラバトルに挑む'}
+            ✓ ${cleared ? '確認クイズをもう一度' : '確認クイズへ進む'}
           </button>
-          <div class="battle-hint">${cleared ? 'もう一度勝つと +20 XP' : '5問中4問正解でクリア。次の時代と新しい衣装が解放！'}</div>`}
+          <div class="battle-hint">${cleared ? 'もう一度合格すると +20 XP' : '5問中4問正解で合格。次の時代と新しい水の色が開きます'}</div>`}
       </div>`;
 
     /* 文をタップ → 訳を出して読み上げ */
@@ -919,8 +919,8 @@ const Builder = {
 
       /* ① 鳴らして当てる */
       list.push(q({
-        kind: 'ビート · 聴き分け',
-        text: 'いま鳴っているのはどのビート？', small: true,
+        kind: 'リズム · 聴き分け',
+        text: 'いま鳴っているのはどのリズム？', small: true,
         sub: a.ear,
         choices: shuffleWith(b, others, x => x.name),
         right: b.name,
@@ -934,7 +934,7 @@ const Builder = {
       const otherMakers = keys.filter(x => x !== k)
         .flatMap(x => BEATS[x].about.makers).filter(m => !a.makers.includes(m));
       list.push(q({
-        kind: 'ビート · 作り手',
+        kind: 'リズム · 作り手',
         text: `${b.name} を作った側の人は？`, small: true,
         sub: a.era,
         choices: [a.makers[0], ...sample([...new Set(otherMakers)], 3)],
@@ -947,7 +947,7 @@ const Builder = {
       /* ③ 音の特徴 */
       const otherEars = keys.filter(x => x !== k).map(x => BEATS[x].about.ear);
       list.push(q({
-        kind: 'ビート · 特徴',
+        kind: 'リズム · 特徴',
         text: `${b.name} の音の特徴は？`, small: true,
         choices: [a.ear, ...sample(otherEars, 3)],
         right: a.ear,
@@ -983,7 +983,7 @@ function buildBoss(era) {
 
   /* 知識クイズのうち、この時代のもの */
   QUIZ.filter(k => k.era === era.id).forEach(k => pool.push(q({
-    kind: 'エラバトル · 知識',
+    kind: '時代の確認 · 知識',
     text: k.q, small: true,
     choices: k.choices.slice(),
     right: k.choices[k.answer],
@@ -996,7 +996,7 @@ function buildBoss(era) {
   /* この時代の用語（間違い選択肢は他の時代の用語から） */
   const otherTerms = ERAS.filter(x => x.id !== era.id).flatMap(x => x.terms);
   era.terms.forEach(t => pool.push(q({
-    kind: 'エラバトル · 用語',
+    kind: '時代の確認 · 用語',
     text: `"${t.en}" の意味は？`,
     choices: shuffleWith(t, sample(otherTerms.filter(o => o.ja !== t.ja), 3), x => x.ja),
     right: t.ja,
@@ -1009,7 +1009,7 @@ function buildBoss(era) {
   /* この時代の人物（間違い選択肢は他の時代の人物から） */
   const otherFigs = ERAS.filter(x => x.id !== era.id).flatMap(x => x.figures);
   era.figures.forEach(f => pool.push(q({
-    kind: 'エラバトル · 人物',
+    kind: '時代の確認 · 人物',
     text: `この時代、"${f.role}" と呼べるのは？`, small: true,
     sub: f.note,
     choices: shuffleWith(f, sample(otherFigs, 3), x => x.name),
@@ -1116,7 +1116,7 @@ const Quiz = {
       <div class="q-text${it.small ? ' small' : ''}">${esc(it.text)}</div>
       ${it.sub ? `<div class="q-sub">${esc(it.sub)}</div>` : ''}
       ${it.say ? `<button class="q-say" id="q-say">🔊 <span>音声を聞く</span></button>` : ''}
-      ${it.playBeat ? `<button class="q-say q-beat" id="q-beat">🎧 <span>ビートを鳴らす</span></button>` : ''}
+      ${it.playBeat ? `<button class="q-say q-beat" id="q-beat">🎧 <span>リズムを鳴らす</span></button>` : ''}
       <div class="q-choices">
         ${it.choices.map((c, n) => `<button class="q-choice" data-n="${n}">${esc(c)}</button>`).join('')}
       </div>`;
@@ -1222,7 +1222,7 @@ const Quiz = {
 
     $('#r-score').textContent = this.correct;
     $('#r-total').textContent = total;
-    $('#r-title').textContent = pass ? `STAGE ${idx + 1} CLEAR!` : 'あと一歩！';
+    $('#r-title').textContent = pass ? `第${idx + 1}章 合格！` : 'あと一歩！';
     $('#r-xp').textContent = `+${this.correct * 10 + bonus} XP` + (bonus ? `（クリアボーナス +${bonus}）` : '');
 
     $('#r-review').innerHTML = `
@@ -1232,11 +1232,11 @@ const Quiz = {
       </div>
       ${firstClear && nextEra ? `
         <div class="unlock-banner">
-          🔓 STAGE ${idx + 2} 解放！ <b>${esc(nextEra.titleJa)}</b>
-          ${firstClear ? '<span>🧢 MC Fresh が新しい衣装に着替えた</span>' : ''}
+          🔓 第${idx + 2}章が開きました <b>${esc(nextEra.titleJa)}</b>
+          ${firstClear ? '<span>🐟 ともやの水の色が変わりました</span>' : ''}
         </div>` : ''}
       ${firstClear && !nextEra ? `
-        <div class="unlock-banner">🏆 WORLD TOUR 制覇！ 全時代クリアだ、GOAT🐐</div>` : ''}
+        <div class="unlock-banner">全時代を読み終えました。おつかれさま！</div>` : ''}
       ${this.missedHtml()}`;
     this.bindReview();
     Nav.go('result');
@@ -1319,7 +1319,7 @@ const Stats = {
 
       <div class="stat-card">
         <h2>網羅の進み具合</h2>
-        <div class="stat-row" style="padding-bottom:2px"><span>ツアークリア</span><b>${d.clearedEras.length} / ${ERAS.length}</b></div>
+        <div class="stat-row" style="padding-bottom:2px"><span>時代めぐり完了</span><b>${d.clearedEras.length} / ${ERAS.length}</b></div>
         <div class="bar-mini"><i style="width:${d.clearedEras.length / ERAS.length * 100}%"></i></div>
         <div class="stat-row" style="padding-bottom:2px;margin-top:14px"><span>ヒストリー読了</span><b>${d.readEras.length} / ${ERAS.length}</b></div>
         <div class="bar-mini"><i style="width:${d.readEras.length / ERAS.length * 100}%"></i></div>
@@ -1369,7 +1369,7 @@ const Path = {
         body: '1文ずつ、かたまりに割って構造を見ます。文法で覚えた形が<b>実際の文でどう出るか</b>を確かめる段階。',
         now: parsedRead, max: parsedTotal, unit: '文',
         go: () => { Nav.go('history'); },
-        cta: 'ツアーの英文を開く',
+        cta: '時代めぐりの英文を開く',
         note: parsedTotal < 20 ? `※ いま解説があるのは ${parsedTotal}文（試作）。方向が良ければ全文に広げます` : '',
       },
       {
@@ -1378,7 +1378,7 @@ const Path = {
         body: '構造が見えたら、量を読みます。<b>辞書を引きすぎず、8割分かればそのまま進む。</b>10の時代を読み切るのが目標。',
         now: readEras, max: ERAS.length, unit: '時代',
         go: () => { Nav.go('history'); },
-        cta: 'ワールドツアーへ',
+        cta: '英語で時代めぐりへ',
       },
       {
         n: 4, key: 'speak', ico: '🚃',
@@ -1682,7 +1682,7 @@ const VoiceSet = {
         const name = decodeURIComponent(b.dataset.v);
         Speech.setVoice(name);
         this.render();
-        Speech.say('This beat goes hard. Real talk.', 0.9);
+        Speech.say('The water is calm this morning.', 0.9);
       };
     });
 
@@ -1699,12 +1699,12 @@ const VoiceSet = {
       Speech.setRate(rate.value / 100);
       $('#v-rate-label').textContent = '×' + Speech.rate.toFixed(2);
     };
-    rate.onchange = () => Speech.say('Who is your favorite MC?', 0.9);
+    rate.onchange = () => Speech.say('What would you like to learn today?', 0.9);
 
     $('#v-test').onclick = () =>
-      Speech.say("Don't sleep on this album. It grew on me.", 0.9);
+      Speech.say('I found an interesting design story today.', 0.9);
     $('#v-slow').onclick = () =>
-      Speech.say("Don't sleep on this album. It grew on me.", 0.62);
+      Speech.say('I found an interesting design story today.', 0.62);
   },
 };
 
@@ -1901,7 +1901,7 @@ function boot() {
 
     const cur = Store.d;
     const warn = (cur.xp > 0 || cur.answered > 0)
-      ? `いまの記録（XP ${cur.xp}／ツアー ${cur.clearedEras.length}/${ERAS.length} クリア）は上書きされます。\n元には戻せません。\n\n読み込んでよろしいですか？`
+      ? `いまの記録（XP ${cur.xp}／時代めぐり ${cur.clearedEras.length}/${ERAS.length} 完了）は上書きされます。\n元には戻せません。\n\n読み込んでよろしいですか？`
       : '記録を読み込みます。よろしいですか？';
     if (!confirm(warn)) return;
 
@@ -1918,7 +1918,7 @@ function boot() {
       `・XP ${d.xp}（ランク ${Rank.now().cur.name}）`,
       `・解答 ${d.answered} 問の履歴`,
       `・学習した項目 ${Object.keys(d.quiz).length} 件`,
-      `・ツアーの進行 ${d.clearedEras.length} / ${ERAS.length} クリア（読了 ${d.readEras.length}）`,
+      `・時代めぐり ${d.clearedEras.length} / ${ERAS.length} 完了（読了 ${d.readEras.length}）`,
       `・連続 ${d.streak} 日、学習した日 ${d.days.length} 日`,
       '',
       '消してよろしいですか？',

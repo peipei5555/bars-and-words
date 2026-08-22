@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="ともやの家">
-<meta name="theme-color" content="#061A2D">
+<meta name="theme-color" content="#EAF5F2">
 <title>ともやの家 — 毎日の英語</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -23,12 +23,12 @@
       <div class="hero-wall"></div>
       <div class="house-brand">
         <img src="icons/icon-180.png" alt="魚のアイコン" width="82" height="82">
-        <div><div class="hero-tag">WELCOME HOME</div><h1 class="hero-title">ともやの家</h1></div>
+        <div><div class="hero-tag">WATERSIDE STUDY ROOM</div><h1 class="hero-title">ともやの家</h1></div>
       </div>
       <p class="hero-sub">好きな世界から、使える英語へ。</p>
 
       <div class="rank-row">
-        <div class="rank-badge" id="rank-badge">Rookie</div>
+        <div class="rank-badge" id="rank-badge">はじめの一歩</div>
         <div class="rank-bar"><div class="rank-fill" id="rank-fill"></div></div>
         <div class="rank-xp" id="rank-xp">0 XP</div>
       </div>
@@ -40,7 +40,7 @@
       </div>
     </div>
 
-    <div class="mc-stage" id="mc-home"><!-- MC Fresh（JSが描く） --></div>
+    <div class="mc-stage" id="mc-home"><!-- 魚のともや（JSが描く） --></div>
 
     <div class="start-panel">
       <div class="start-kicker">TODAY'S ENGLISH</div>
@@ -70,9 +70,9 @@
       </button>
       <nav class="mode-grid">
       <button class="mode" data-go="history" style="--c:#E0B33C">
-        <span class="m-ico">📻</span>
-        <b>ワールドツアー</b>
-        <small>時代を旅してクリアしていく</small>
+        <span class="m-ico">🌊</span>
+        <b>英語で時代めぐり</b>
+        <small>文化と音楽の流れを読む</small>
       </button>
       <button class="mode" data-go="slang" style="--c:#D9564F">
         <span class="m-ico">🔥</span>
@@ -96,8 +96,8 @@
       </button>
       <button class="mode" data-quiz="beat" style="--c:#2FD9AE">
         <span class="m-ico">🎧</span>
-        <b>ビート聴き分け</b>
-        <small>鳴らして当てる・誰の音か</small>
+        <b>リズム聴き分け</b>
+        <small>音の違いを聞いて当てる</small>
       </button>
       <button class="mode" data-go="toeic" style="--c:#5BA9CC">
         <span class="m-ico">📘</span>
@@ -112,7 +112,7 @@
       <button class="link" data-go="stats">記録を見る</button>
       <button class="link" data-go="about">このアプリについて</button>
       <button class="link" id="check-update">最新版を確認</button>
-      <span class="app-version">TOMOYA 1.2</span>
+      <span class="app-version">TOMOYA 1.3</span>
     </div>
   </section>
 
@@ -199,13 +199,13 @@
     <div class="pad"></div>
   </section>
 
-  <!-- ================= ワールドツアー（ヒストリー） ================= -->
+  <!-- ================= 英語で時代めぐり（ヒストリー） ================= -->
   <section class="screen" id="screen-history">
     <header class="bar">
       <button class="back" data-go="home">←</button>
-      <h1>ワールドツアー</h1>
+      <h1>英語で時代めぐり</h1>
     </header>
-    <p class="lead">時代を<b>英語で読んで、バトルに勝つ</b>とクリア。次の時代と MC Fresh の新しい衣装が解放されます。</p>
+    <p class="lead">大人向けの文化史を<b>やさしい英語で読み、確認クイズに合格</b>すると次へ進みます。ともやの水の色も変わります。</p>
     <div class="timeline" id="timeline"></div>
     <div class="pad"></div>
   </section>
@@ -371,7 +371,7 @@
       <b>BGM</b>
       <button class="bgm-close" id="bgm-close">✕</button>
     </div>
-    <p class="bgm-note">歌詞のないビートをその場で合成しています。音源ファイルは持っていないので、圏外でも鳴ります。<br>
+    <p class="bgm-note">学習用の歌詞なしリズムを、その場で合成しています。音源ファイルは持っていないので、圏外でも鳴ります。<br>
       <b>右下のボタンはタップで再生／停止。長押しでこの画面が出ます。</b></p>
 
     <button class="bgm-toggle" id="bgm-toggle">再生</button>
@@ -383,7 +383,7 @@
 
     <label class="bgm-follow">
       <input type="checkbox" id="bgm-follow" checked>
-      <span>読んでいる時代のビートに自動で切り替える</span>
+      <span>読んでいる時代のリズムに自動で切り替える</span>
     </label>
 
     <div class="bgm-list" id="bgm-list"></div>
@@ -400,7 +400,7 @@
 
 </div>
 
-<script src="data/character.js"></script>
+<script src="data/tomoya.js"></script>
 <script src="data/history.js"></script>
 <script src="data/slang.js"></script>
 <script src="data/pronunciation.js"></script>
