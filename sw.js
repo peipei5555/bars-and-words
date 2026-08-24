@@ -8,7 +8,7 @@
 
 importScripts('./audio/files.js');
 
-const CACHE = 'tomoya-house-v13';
+const CACHE = 'tomoya-house-v16';
 
 /* すべて相対パス。GitHub Pages のサブディレクトリ配信でもそのまま動く */
 const ASSETS = [
@@ -16,6 +16,7 @@ const ASSETS = [
   './index.html',
   './style.css',
   './app.js',
+  './realtime.js',
   './beat.js',
   './commute.js',
   './manifest.json',
@@ -34,6 +35,7 @@ const ASSETS = [
   './data/quiz.js',
   './data/commute.js',
   './data/topics.js',
+  './data/immersion.js',
   './data/parse.js',
   './data/grammar.js',
   './audio/manifest.js',

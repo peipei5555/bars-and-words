@@ -25,6 +25,7 @@ const Store = {
     if (!this.d) this.d = this.blank();
     const b = this.blank();
     for (const k in b) if (!(k in this.d)) this.d[k] = b[k];
+    this.normalizeLearning(this.d);
     return this.d;
   },
 
@@ -41,7 +42,32 @@ const Store = {
       streak: 0,
       lastDay: '',
       days: [],
+      learning: {
+        version: 2,
+        items: {},
+        sessions: [],
+        realtime: { sessions: [] },
+      },
     };
+  },
+
+  normalizeLearning(data) {
+    if (!data.learning || typeof data.learning !== 'object') data.learning = {};
+    if (!data.learning.version || data.learning.version < 2) data.learning.version = 2;
+    if (!data.learning.items || typeof data.learning.items !== 'object') data.learning.items = {};
+    if (!Array.isArray(data.learning.sessions)) data.learning.sessions = [];
+    if (!data.learning.realtime || typeof data.learning.realtime !== 'object') data.learning.realtime = {};
+    if (!Array.isArray(data.learning.realtime.sessions)) data.learning.realtime.sessions = [];
+    for (const item of Object.values(data.learning.items)) {
+      if (!item || typeof item !== 'object') continue;
+      if (!Number.isFinite(item.encounterCount)) item.encounterCount = 0;
+      if (!Number.isFinite(item.correctCount)) item.correctCount = 0;
+      if (!Number.isFinite(item.wrongCount)) item.wrongCount = 0;
+      for (const key of ['kind', 'lastSeenAt', 'lastCorrectAt', 'lastResult', 'nextDueAt']) {
+        if (typeof item[key] !== 'string') item[key] = '';
+      }
+    }
+    return data.learning;
   },
 
   save() { try { localStorage.setItem(KEY, JSON.stringify(this.d)); } catch (e) {} },
@@ -68,6 +94,7 @@ const Store = {
     /* 足りない項目は初期値で埋める（古い版の書き出しでも読める） */
     const b = this.blank();
     for (const k in b) if (!(k in d)) d[k] = b[k];
+    this.normalizeLearning(d);
 
     this.d = d;
     this.save();
@@ -92,6 +119,79 @@ const Store = {
     ok ? r.ok++ : r.ng++;
     this.d.answered++;
     if (ok) { this.d.correct++; this.d.xp += 10; }
+    this.save();
+  },
+
+  /* Immersionと今後の復習エンジンで共通利用する項目単位の履歴。 */
+  recordEncounter(id, kind, result = 'seen') {
+    const learning = this.normalizeLearning(this.d);
+    const now = new Date().toISOString();
+    const item = learning.items[id] || (learning.items[id] = {
+      kind,
+      encounterCount: 0,
+      correctCount: 0,
+      wrongCount: 0,
+      lastSeenAt: '',
+      lastCorrectAt: '',
+      lastResult: '',
+      nextDueAt: '',
+    });
+    item.kind = kind || item.kind;
+    item.encounterCount++;
+    item.lastSeenAt = now;
+    item.lastResult = result;
+    if (result === 'correct') {
+      item.correctCount++;
+      item.lastCorrectAt = now;
+    } else if (result === 'wrong') {
+      item.wrongCount++;
+    }
+    const delayDays = result === 'wrong' ? 1 : result === 'correct' ? 3 : 2;
+    item.nextDueAt = new Date(Date.now() + delayDays * 86400000).toISOString();
+    this.save();
+    return item;
+  },
+
+  recordLearningSession(summary) {
+    const learning = this.normalizeLearning(this.d);
+    learning.sessions.push({ ...summary, completedAt: new Date().toISOString() });
+    this.save();
+  },
+
+  realtimeUsedToday() {
+    const sessions = this.normalizeLearning(this.d).realtime.sessions;
+    const today = ymd(new Date());
+    return sessions.some(x => x && x.day === today && x.startedAt);
+  },
+
+  startRealtimeSession(lessonId) {
+    const realtime = this.normalizeLearning(this.d).realtime;
+    const session = {
+      id: `voice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      day: ymd(new Date()),
+      lessonId: String(lessonId || ''),
+      startedAt: new Date().toISOString(),
+      endedAt: '',
+      durationSeconds: 0,
+      feedback: { understood: '', oneFix: '', review: '' },
+    };
+    realtime.sessions.push(session);
+    if (realtime.sessions.length > 90) realtime.sessions.splice(0, realtime.sessions.length - 90);
+    this.save();
+    return session.id;
+  },
+
+  finishRealtimeSession(id, summary = {}) {
+    const sessions = this.normalizeLearning(this.d).realtime.sessions;
+    const session = sessions.find(x => x && x.id === id);
+    if (!session) return;
+    session.endedAt = new Date().toISOString();
+    session.durationSeconds = Math.max(0, Math.min(120, Math.round(summary.durationSeconds || 0)));
+    session.feedback = {
+      understood: String(summary.feedback?.understood || ''),
+      oneFix: String(summary.feedback?.oneFix || ''),
+      review: String(summary.feedback?.review || ''),
+    };
     this.save();
   },
 
@@ -214,6 +314,13 @@ const Speech = {
   say(text, rate = 0.9, onend) {
     const state = (value, error = '') => document.dispatchEvent(new CustomEvent('speech-state', { detail: { state: value, error } }));
     this.stopPlayback();
+    /* ローカルの表示検証専用。公開環境では有効にならない。 */
+    if (typeof location !== 'undefined' && /^(127\.0\.0\.1|localhost)$/.test(location.hostname)
+        && new URLSearchParams(location.search).has('silent-audio')) {
+      state('ready');
+      if (onend) queueMicrotask(onend);
+      return;
+    }
     const natural = typeof AUDIO_MANIFEST !== 'undefined' && AUDIO_MANIFEST[text];
     if (natural) {
       const audio = new Audio(natural);
@@ -455,7 +562,12 @@ const Home = {
 
     const preview = $('#topic-preview');
     if (preview && typeof topicForToday === 'function') {
-      const topic = topicForToday();
+      let topic = topicForToday();
+      if (typeof Commute !== 'undefined' && typeof IMMERSION_LESSONS !== 'undefined') {
+        const next = Commute.pickImmersionLessons(1, 'commute')[0];
+        const matched = next && TOPICS.find(x => x.id === next.topicId);
+        if (matched) topic = matched;
+      }
       preview.innerHTML = `<span>${topic.emoji} 今日のジャンル</span><b>${esc(topic.cat)} · ${esc(topic.titleJa)}</b>`;
     }
 
@@ -1029,6 +1141,8 @@ function q(o) {
     kind: o.kind, text: o.text, small: !!o.small, sub: o.sub || '',
     choices, answer: choices.indexOf(o.right),
     note: o.note || '', say: o.say || '', autoSay: !!o.autoSay,
+    promptAudio: o.promptAudio || (o.autoSay ? o.say || '' : ''),
+    answerAudio: o.answerAudio || (!o.autoSay ? o.say || '' : ''),
     playBeat: o.playBeat || null,
     key: o.key, rvEn: o.rvEn, rvJa: o.rvJa,
   };
@@ -1115,16 +1229,16 @@ const Quiz = {
       <div class="q-kind">${esc(it.kind)}</div>
       <div class="q-text${it.small ? ' small' : ''}">${esc(it.text)}</div>
       ${it.sub ? `<div class="q-sub">${esc(it.sub)}</div>` : ''}
-      ${it.say ? `<button class="q-say" id="q-say">🔊 <span>音声を聞く</span></button>` : ''}
+      ${it.promptAudio ? `<button class="q-say" id="q-say">🔊 <span>問題の音声を聞く</span></button>` : ''}
       ${it.playBeat ? `<button class="q-say q-beat" id="q-beat">🎧 <span>リズムを鳴らす</span></button>` : ''}
       <div class="q-choices">
         ${it.choices.map((c, n) => `<button class="q-choice" data-n="${n}">${esc(c)}</button>`).join('')}
       </div>`;
 
-    if (it.say) {
+    if (it.promptAudio) {
       const b = $('#q-say');
-      b.onclick = () => sayFrom(b, it.say, 0.88);
-      if (it.autoSay) setTimeout(() => Speech.say(it.say, 0.88), 400);
+      b.onclick = () => sayFrom(b, it.promptAudio, 0.88);
+      if (it.autoSay) setTimeout(() => Speech.say(it.promptAudio, 0.88), 400);
     }
 
     /* ビート問題：答えを見るまで名前を伏せたまま鳴らす */
@@ -1159,12 +1273,18 @@ const Quiz = {
       else                   b.classList.add('dim');
     });
 
-    if (!ok && it.say) Speech.say(it.say, 0.85);
-
     const note = document.createElement('div');
     note.className = 'q-note';
     note.innerHTML = (ok ? '<b>正解</b><br>' : '<b>不正解</b><br>') + it.note;
     $('#quiz-body').appendChild(note);
+
+    if (it.answerAudio) {
+      const audio = document.createElement('button');
+      audio.className = 'q-say';
+      audio.innerHTML = '🔊 <span>答えの音声を聞く</span>';
+      audio.onclick = () => sayFrom(audio, it.answerAudio, 0.85);
+      $('#quiz-body').appendChild(audio);
+    }
 
     const next = document.createElement('button');
     next.className = 'q-next';

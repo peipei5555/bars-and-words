@@ -20,13 +20,14 @@ const INSTRUCTIONS = [
 function loadData() {
   const context = {};
   vm.createContext(context);
-  for (const name of ['data/commute.js', 'data/topics.js', 'data/grammar.js', 'data/parse.js']) {
+  for (const name of ['data/commute.js', 'data/topics.js', 'data/grammar.js', 'data/parse.js', 'data/immersion.js']) {
     let src = fs.readFileSync(path.join(ROOT, name), 'utf8');
     src += '\n;globalThis.__SHADOW = typeof SHADOW === "undefined" ? globalThis.__SHADOW : SHADOW;';
     src += '\n;globalThis.__DRILLS = typeof DRILLS === "undefined" ? globalThis.__DRILLS : DRILLS;';
     src += '\n;globalThis.__TOPICS = typeof TOPICS === "undefined" ? globalThis.__TOPICS : TOPICS;';
     src += '\n;globalThis.__GRAMMAR = typeof GRAMMAR === "undefined" ? globalThis.__GRAMMAR : GRAMMAR;';
     src += '\n;globalThis.__PARSE = typeof PARSE === "undefined" ? globalThis.__PARSE : PARSE;';
+    src += '\n;globalThis.__IMMERSION = typeof IMMERSION_LESSONS === "undefined" ? globalThis.__IMMERSION : IMMERSION_LESSONS;';
     vm.runInContext(src, context, { filename: name });
   }
   return context;
@@ -54,7 +55,11 @@ function collectItems(context) {
   for (const [sentence, detail] of Object.entries(context.__PARSE || {})) {
     add(items, sentence, 'cedar');
     for (const chunk of detail.chunks || []) add(items, chunk.t, 'cedar');
-    for (const alternate of detail.alts || []) add(items, alternate, 'cedar');
+    for (const alternate of detail.alts || []) add(items, alternate.en, 'cedar');
+  }
+  for (const lesson of context.__IMMERSION || []) {
+    for (const sentence of lesson.sentences || []) add(items, sentence.en, 'marin');
+    for (const output of lesson.production || []) add(items, output.answer, 'cedar');
   }
   return items;
 }
@@ -62,6 +67,13 @@ function collectItems(context) {
 function fileFor(text, voice) {
   const identity = JSON.stringify({ provider: 'openai', model: MODEL, voice, speed: SPEED, instructions: INSTRUCTIONS, text });
   return `${crypto.createHash('sha256').update(identity).digest('hex').slice(0, 20)}.mp3`;
+}
+
+export function listOpenAIAudioTargets() {
+  return [...collectItems(loadData()).entries()].map(([text, voice]) => {
+    const file = fileFor(text, voice);
+    return { text, voice, file, exists: fs.existsSync(path.join(OUT_DIR, file)) };
+  });
 }
 
 async function synthesize(apiKey, text, voice) {
@@ -90,7 +102,7 @@ async function synthesize(apiKey, text, voice) {
 export async function generateOpenAIAudio({ apiKey, concurrency = 2, onProgress } = {}) {
   apiKey ||= typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : '';
   if (!apiKey) throw new Error('OPENAI_API_KEY が設定されていません。');
-  const entries = [...collectItems(loadData()).entries()];
+  const entries = listOpenAIAudioTargets().map(x => [x.text, x.voice]);
   if (entries.length > 400) throw new Error(`安全上限を超えました: ${entries.length}件`);
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
@@ -136,4 +148,13 @@ export async function generateOpenAIAudio({ apiKey, concurrency = 2, onProgress 
 
 const invokedDirectly = typeof process !== 'undefined' && process.argv?.[1]
   && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
-if (invokedDirectly) await generateOpenAIAudio({ apiKey: process.env.OPENAI_API_KEY });
+if (invokedDirectly) {
+  if (process.argv.includes('--list')) {
+    const targets = listOpenAIAudioTargets();
+    const missing = targets.filter(x => !x.exists);
+    process.stdout.write(`対象 ${targets.length}件 / 生成済み ${targets.length - missing.length}件 / 未生成 ${missing.length}件\n`);
+    for (const item of missing) process.stdout.write(`[${item.voice}] ${item.text}\n`);
+  } else {
+    await generateOpenAIAudio({ apiKey: process.env.OPENAI_API_KEY });
+  }
+}

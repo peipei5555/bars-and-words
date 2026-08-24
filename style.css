@@ -1899,3 +1899,146 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .tomoya-all, .tomoya-tail, .tomoya-bubbles, .mc-figure.mc-cheer .tomoya-all { animation: none !important; }
 }
+.imm-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.imm-topic {
+  color: var(--teal, #176f73);
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.imm-card h2 { margin: 0; }
+
+.imm-progress {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(25, 105, 109, .12);
+}
+
+.imm-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #50b9b2, #8fd6bd);
+}
+
+.imm-step {
+  color: #527578;
+  font-size: .82rem;
+  font-weight: 800;
+}
+
+.imm-listen-mark {
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid rgba(64, 143, 145, .2);
+  border-radius: 24px;
+  background: linear-gradient(150deg, rgba(226, 247, 243, .9), rgba(255, 255, 255, .7));
+  text-align: center;
+  font-size: 2.5rem;
+}
+
+.imm-listen-mark b { color: #244e52; font-size: 1rem; }
+.imm-listen-mark small { color: #6b8587; font-size: .78rem; }
+
+.imm-en,
+.imm-answer {
+  color: #173e43;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.35rem, 5.5vw, 2rem);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.imm-ja,
+.imm-output-ja {
+  padding: 14px 16px;
+  border-left: 3px solid #73bdb2;
+  border-radius: 0 14px 14px 0;
+  background: rgba(226, 247, 243, .62);
+  color: #365c60;
+  line-height: 1.75;
+}
+
+.imm-output-ja { font-size: 1.15rem; font-weight: 700; }
+.imm-replay { align-self: flex-start; }
+
+.imm-breakdown {
+  border: 1px solid rgba(64, 143, 145, .22);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .58);
+}
+
+.imm-breakdown summary {
+  padding: 14px 16px;
+  cursor: pointer;
+  color: #315e62;
+  font-weight: 800;
+  list-style-position: inside;
+}
+
+.imm-breakdown summary span { float: right; color: #789496; font-size: .72rem; }
+.imm-chunks { display: grid; gap: 8px; padding: 2px 12px 12px; }
+
+.imm-chunk {
+  display: grid;
+  grid-template-columns: minmax(82px, .75fr) 1.3fr;
+  gap: 3px 10px;
+  padding: 10px 12px;
+  border-left: 4px solid var(--rc);
+  border-radius: 10px;
+  background: rgba(238, 248, 246, .75);
+}
+
+.imm-role { grid-row: 1 / span 2; align-self: center; color: #557477; font-size: .7rem; font-weight: 800; }
+.imm-chunk b { color: #214a4e; font-size: .96rem; }
+.imm-chunk small { color: #6c8587; font-size: .75rem; }
+.imm-point { margin: 0; padding: 0 16px 16px; color: #4e6f72; font-size: .86rem; line-height: 1.7; }
+
+.imm-answer {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(218, 243, 235, .82);
+}
+
+.imm-grade,
+.cm-extend-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.imm-grade .btn-primary { margin: 0; }
+.cm-extend { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(72, 130, 132, .18); }
+.cm-extend > b { display: block; margin-bottom: 10px; }
+
+/* 2分音声実践。既存のImmersionカードと同じ水辺の学習室トーン。 */
+.voice-card { display: grid; gap: 16px; }
+.voice-card h2 { margin: 0; line-height: 1.35; }
+.voice-kicker { color: var(--teal, #177f78); font: 700 12px/1.2 var(--f-body); letter-spacing: .1em; }
+.voice-lead, .voice-help { margin: 0; line-height: 1.75; color: var(--ink-soft, #52626a); }
+.voice-lines { display: grid; gap: 8px; }
+.voice-lines span { padding: 11px 13px; border: 1px solid rgba(31, 103, 103, .2); border-radius: 12px; background: rgba(255,255,255,.72); line-height: 1.5; }
+.voice-notice { display: grid; gap: 5px; padding: 13px; border: 1px solid #d8b969; border-radius: 12px; background: #fff9e8; }
+.voice-notice small { line-height: 1.55; color: #665d43; }
+.voice-unavailable { padding: 13px; border-radius: 12px; background: rgba(44,75,86,.08); line-height: 1.6; }
+.voice-actions { display: grid; gap: 10px; }
+.voice-actions .btn-primary, .voice-actions .btn-ghost { margin: 0; }
+.voice-state { min-height: 1.5em; text-align: center; color: var(--ink-soft, #52626a); font-size: 13px; }
+.voice-state.error { color: var(--danger, #b73b36); }
+.voice-timer { margin: 4px auto; width: 112px; padding: 13px 8px; border: 2px solid var(--teal, #177f78); border-radius: 999px; text-align: center; color: var(--teal, #177f78); background: #fff; font: 700 28px/1 var(--f-disp); }
+.voice-stop { margin-top: 4px; }
+.voice-feedback { padding: 13px 14px; border-radius: 13px; background: rgba(255,255,255,.74); border-left: 4px solid var(--teal, #177f78); }
+.voice-feedback span { display: block; margin-bottom: 5px; color: var(--teal, #177f78); font-weight: 700; font-size: 12px; }
+.voice-feedback p { margin: 0; line-height: 1.65; }
+
+@media (min-width: 760px) {
+  .imm-card { max-width: 720px; margin-inline: auto; }
+  .imm-chunks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

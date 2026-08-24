@@ -1,15 +1,15 @@
 /* ===========================================================
-   通勤モード — シャドーイング → 単語カード → 会話ドリル → 仕上げクイズ を自動で流す
+   今日の英語 — Immersionを中心に、既存の通勤教材も保持する
    app.js の $ / $$ / esc / Speech / Store / Nav / Home / shuffle / sample /
    q() / shuffleWith() / sayFrom() をそのまま利用する（同じグローバルスコープ）。
-   app.js 側は無改造。データは data/commute.js（SHADOW / DRILLS / COMMUTE_CATS）。
+   新教材は data/immersion.js、従来教材は data/commute.js を利用する。
    =========================================================== */
 
 'use strict';
 
-/* 黒坂式の順序（文法・精読が先、多読と音読はその後）に合わせた並び。
-   ペーさんが選ぶのは時間だけで、中身は毎日ここから自動で配られる。 */
+/* 表示名。従来ステージは別教材から引き続き利用できるよう残す。 */
 const COMMUTE_STAGE_JA = {
+  immersion: '今日の英語',
   topic:   '今日の読みもの',
   grammar: '今日の文法',
   parse:   '精読',
@@ -37,6 +37,8 @@ const Commute = {
   plan: [], idx: 0, planTotal: 0, planDone: 0, minutes: 10, mode: 'commute',
   _timers: [],
   _lastSummary: null,
+  checkpoint: null,
+  _transitionLocked: false,
 
   clearTimers() { this._timers.forEach(t => clearTimeout(t)); this._timers = []; },
   after(ms, fn) { const t = setTimeout(fn, ms); this._timers.push(t); return t; },
@@ -46,31 +48,19 @@ const Commute = {
     const el = $('#commute-setup');
     if (!el) return;
     const done = showDone && this._lastSummary;
-    const gDone = (Store.d.grammarRead || []).length;
-    const gTotal = typeof GRAMMAR !== 'undefined' ? GRAMMAR.length : 0;
-    const nextG = typeof GRAMMAR !== 'undefined'
-      ? (GRAMMAR.find(g => !(Store.d.grammarRead || []).includes(g.id)) || null) : null;
-
     el.innerHTML = `
       <p class="lead">時間を選ぶだけで、<b>今日やるぶんが自動で配られます</b>。
-        黒坂式の順番どおり <b>文法 → 精読 → 音読 → 定着</b> と流れるので、
-        毎日これだけ続けていれば勝手に前へ進みます。タップは最小限です。</p>
+        <b>聞く → 読む → 意味をつかむ → もう一度聞く → 確認</b>の順に進みます。
+        学習方法を選ぶ必要はありません。</p>
 
-      ${gTotal ? `
       <div class="cm-today">
         <div class="cmt-h">つぎに配られる内容</div>
-        <div class="cmt-row"><span class="cmt-n">1</span><b>今日の読みもの</b> … 12ジャンルから自動選択</div>
+        <div class="cmt-row"><span class="cmt-n">1</span><b>まず音だけで聞く</b></div>
         <div class="cmt-row"><span class="cmt-n">2</span>
-          <b>今日の文法</b>${nextG ? ` … ${esc(nextG.titleJa)}` : ' … 全項目を一巡したので復習に入ります'}</div>
-        <div class="cmt-row"><span class="cmt-n">3</span><b>精読</b> … 文をかたまりに割って構造を見る</div>
-        <div class="cmt-row"><span class="cmt-n">4</span><b>音読・単語・会話</b></div>
-        <div class="cmt-row"><span class="cmt-n">5</span><b>仕上げクイズ</b></div>
-        <div class="cmd-prog" style="margin-top:12px">
-          <span>文法の進み具合</span>
-          <div class="bar-mini"><i style="width:${gDone / gTotal * 100}%"></i></div>
-          <b>${gDone} / ${gTotal} 項目</b>
-        </div>
-      </div>` : ''}
+          <b>英文と意味を確認</b> … 文の組み立ても必要な時だけ開けます</div>
+        <div class="cmt-row"><span class="cmt-n">3</span><b>意味を知って、もう一度聞く</b></div>
+        <div class="cmt-row"><span class="cmt-n">4</span><b>日本語から英語を作って確認</b></div>
+      </div>
       ${done ? `
       <div class="cm-done-banner">
         <b>✓ 今日のセッション完了</b>
@@ -78,13 +68,15 @@ const Commute = {
           <div class="cmd-row">📐 今日の文法 … <b>${esc(this._lastSummary.grammar.join('、'))}</b></div>` : ''}
         ${this._lastSummary.parseCount ? `
           <div class="cmd-row">📖 精読 … <b>${this._lastSummary.parseCount}文</b></div>` : ''}
-        <div class="cmd-row">🎧 音読と定着 … <b>${this._lastSummary.items}項目</b> ／ クイズ ${this._lastSummary.quizCorrect}/${this._lastSummary.quizTotal}</div>
+        <div class="cmd-row">🎧 聞く・読む・確認 … <b>${this._lastSummary.items}レッスン</b></div>
         <div class="cmd-row">+${this._lastSummary.xp} XP</div>
-        ${this._lastSummary.grammarTotal ? `
-          <div class="cmd-prog">
-            <span>文法の進み具合</span>
-            <div class="bar-mini"><i style="width:${this._lastSummary.grammarDone / this._lastSummary.grammarTotal * 100}%"></i></div>
-            <b>${this._lastSummary.grammarDone} / ${this._lastSummary.grammarTotal} 項目</b>
+        ${this._lastSummary.mode === 'quick' || this._lastSummary.mode === 'free' ? `
+          <div class="cm-extend">
+            <b>もう少し続けますか？</b>
+            <div class="cm-extend-actions">
+              <button class="btn-ghost" data-free-min="10">あと10分</button>
+              <button class="btn-ghost" data-free-min="20">あと20分</button>
+            </div>
           </div>` : ''}
       </div>` : ''}
       <div class="cm-len-grid">
@@ -99,6 +91,9 @@ const Commute = {
     $$('#commute-setup .cm-len-btn').forEach(b => {
       b.onclick = () => this.start(+b.dataset.min, 'commute');
     });
+    $$('#commute-setup [data-free-min]').forEach(b => {
+      b.onclick = () => this.start(+b.dataset.freeMin, 'free');
+    });
   },
 
   /* ---------- セッション開始 ---------- */
@@ -112,6 +107,8 @@ const Commute = {
     this._quizCorrectTotal = 0;
     this._quizTotalAll = 0;
     this._gItems = []; this._pItems = [];
+    this._voiceOffered = false;
+    this.checkpoint = null;
     this.saveSession();
     Store.touchToday();
     Nav.go('commute-run');
@@ -119,11 +116,13 @@ const Commute = {
   },
 
   buildPlan(minutes, mode = 'commute') {
+    if (typeof IMMERSION_LESSONS !== 'undefined') {
+      const count = minutes >= 20 ? 2 : 1;
+      return [{ type: 'immersion', n: count, lessonIds: this.pickImmersionLessons(count, mode).map(x => x.id) }];
+    }
     if (mode === 'quick') return [
-      { type: 'topic', n: 1 },
-      { type: 'flash', n: 3 },
-      { type: 'shadow', n: 2 },
-      { type: 'quiz', n: 3 },
+      { type: 'topic', n: 1 }, { type: 'flash', n: 3 },
+      { type: 'shadow', n: 2 }, { type: 'quiz', n: 3 },
     ];
     const scale = minutes / 10;
     const plan = [];
@@ -146,6 +145,27 @@ const Commute = {
       { type: 'quiz',   n: Math.max(2, Math.round(3 * scale)) },
     );
     return plan;
+  },
+
+  pickImmersionLessons(n, mode) {
+    const items = Store.normalizeLearning(Store.d).items;
+    const now = Date.now();
+    const seed = Number(ymd(new Date()).replaceAll('-', ''));
+    return IMMERSION_LESSONS
+      .filter(x => (x.modes || []).includes(mode) || (mode === 'commute' && (x.modes || []).includes('commute')))
+      .map((lesson, index) => {
+        const stat = items['lesson:' + lesson.id] || {};
+        const outputs = lesson.production.map(x => items['production:' + x.id] || {});
+        const outputDue = outputs.some(x => x.nextDueAt && Date.parse(x.nextDueAt) <= now);
+        const due = outputDue || !stat.nextDueAt || Date.parse(stat.nextDueAt) <= now;
+        const wrong = outputs.reduce((sum, x) => sum + (x.wrongCount || 0) - Math.min(2, x.correctCount || 0), 0);
+        return { lesson, index, due, encounters: stat.encounterCount || 0, wrong };
+      })
+      .sort((a, b) => Number(b.due) - Number(a.due)
+        || b.wrong - a.wrong
+        || a.encounters - b.encounters
+        || ((a.index + seed) % IMMERSION_LESSONS.length) - ((b.index + seed) % IMMERSION_LESSONS.length))
+      .slice(0, n).map(x => x.lesson);
   },
 
   /* まだ読んでいない項目を優先して配る。全部済んだら「いちばん昔に読んだもの」から復習。
@@ -177,7 +197,8 @@ const Commute = {
     if (this.idx >= this.plan.length) return this.finish();
     const st = this.plan[this.idx];
     $('#commute-stage-label').textContent = COMMUTE_STAGE_JA[st.type];
-    if (st.type === 'topic') this.runTopic(st.n);
+    if (st.type === 'immersion') this.runImmersion(st);
+    else if (st.type === 'topic') this.runTopic(st.n);
     else if (st.type === 'grammar') this.runGrammar(st.n);
     else if (st.type === 'parse') this.runParse(st.n);
     else if (st.type === 'shadow') this.runShadow(st.n);
@@ -186,13 +207,13 @@ const Commute = {
     else if (st.type === 'quiz') this.runQuiz(st.n);
   },
 
-  nextStage() { this.idx++; this.saveSession(); this.runStage(); },
+  nextStage() { this.idx++; this.checkpoint = null; this.saveSession(); this.runStage(); },
 
   saveSession() {
     try {
       localStorage.setItem('bars-words-session', JSON.stringify({
         minutes: this.minutes, mode: this.mode, plan: this.plan, idx: this.idx,
-        planDone: this.planDone, savedAt: Date.now(),
+        planDone: this.planDone, checkpoint: this.checkpoint, version: 2, savedAt: Date.now(),
       }));
     } catch (e) {}
     this.updateResumeButton();
@@ -201,7 +222,12 @@ const Commute = {
   savedSession() {
     try {
       const s = JSON.parse(localStorage.getItem('bars-words-session'));
-      return s && Array.isArray(s.plan) && s.idx < s.plan.length ? s : null;
+      if (!s || !Array.isArray(s.plan) || s.idx >= s.plan.length) return null;
+      if (s.checkpoint) {
+        const phases = ['listen', 'read', 'meaning', 'relisten', 'output'];
+        if (!phases.includes(s.checkpoint.phase)) s.checkpoint = null;
+      }
+      return s;
     } catch (e) { return null; }
   },
 
@@ -210,8 +236,10 @@ const Commute = {
     if (!s) return this.start(10, 'commute');
     this.minutes = s.minutes; this.mode = s.mode || 'commute'; this.plan = s.plan;
     this.idx = s.idx; this.planDone = s.planDone || 0;
+    this.checkpoint = s.checkpoint || null;
     this.planTotal = this.plan.reduce((sum, item) => sum + item.n, 0);
     this._quizCorrectTotal = 0; this._quizTotalAll = 0;
+    this._voiceOffered = false;
     Nav.go('commute-run'); this.updateBar(); this.runStage();
   },
 
@@ -221,6 +249,175 @@ const Commute = {
     const s = this.savedSession();
     b.hidden = !s;
     if (s) b.textContent = `${s.mode === 'quick' ? 'ちょっと5分' : '今日の英語'}を途中から再開`;
+  },
+
+  /* ---------- Immersion Learning ---------- */
+  runImmersion(stage) {
+    this._iItems = (stage.lessonIds || []).map(immersionLesson).filter(Boolean);
+    if (!this._iItems.length) return this.nextStage();
+    const cp = this.checkpoint;
+    if (!cp || cp.stageIndex !== this.idx || cp.type !== 'immersion') {
+      this.checkpoint = {
+        type: 'immersion', stageIndex: this.idx, lessonIndex: 0,
+        sentenceIndex: 0, phase: 'listen', outputIndex: 0,
+        revealed: false, recorded: false,
+      };
+    }
+    this.showImmersion();
+  },
+
+  immersionCheckpoint(next) {
+    this.checkpoint = { ...this.checkpoint, ...next };
+    this.saveSession();
+    this.showImmersion();
+  },
+
+  breakdownHtml(sentence) {
+    return `<details class="imm-breakdown">
+      <summary>文の組み立てを見る <span>S / V / O / C / M</span></summary>
+      <div class="imm-chunks">${sentence.chunks.map(c => {
+        const role = ROLE_INFO[c.role] || ROLE_INFO.M;
+        return `<div class="imm-chunk" style="--rc:${role.c}">
+          <span class="imm-role">${esc(role.short)} · ${esc(role.ja)}</span>
+          <b>${esc(c.t)}</b><small>${esc(c.ja)}</small>
+        </div>`;
+      }).join('')}</div>
+      <p class="imm-point">${esc(sentence.point)}</p>
+    </details>`;
+  },
+
+  bindOnce(selector, action) {
+    const button = $(selector);
+    if (!button) return;
+    button.onclick = () => {
+      if (button.disabled) return;
+      button.disabled = true;
+      Speech.stop();
+      this.clearTimers();
+      action();
+    };
+  },
+
+  showImmersion() {
+    this.clearTimers();
+    const cp = this.checkpoint;
+    const lesson = this._iItems[cp.lessonIndex];
+    if (!lesson) return this.nextStage();
+    $('#commute-stage-label').textContent = `今日の英語 ${cp.lessonIndex + 1}/${this._iItems.length}`;
+
+    if (cp.phase === 'output') return this.showImmersionOutput(lesson);
+    const sentence = lesson.sentences[cp.sentenceIndex];
+    if (!sentence) return this.startImmersionOutput();
+
+    if (cp.phase === 'listen' && !cp.recorded) {
+      Store.recordEncounter('sentence:' + sentence.id, 'sentence', 'seen');
+      if (cp.sentenceIndex === 0) Store.recordEncounter('lesson:' + lesson.id, 'lesson', 'seen');
+      cp.recorded = true;
+      this.saveSession();
+    }
+
+    const step = { listen: 1, read: 2, meaning: 3, relisten: 4 }[cp.phase] || 1;
+    const showEnglish = cp.phase !== 'listen';
+    const showMeaning = cp.phase === 'meaning' || cp.phase === 'relisten';
+    const labels = {
+      listen: ['まずは音だけ', '英文を見る'],
+      read: ['聞こえた英文', '意味を確認'],
+      meaning: ['意味と組み立て', 'もう一度聞く'],
+      relisten: ['意味を知ってもう一度', cp.sentenceIndex + 1 >= lesson.sentences.length ? '瞬間英作文へ' : '次の英文へ'],
+    };
+    const [heading, nextLabel] = labels[cp.phase];
+    $('#commute-body').innerHTML = `
+      <div class="cm-stage imm-card" data-phase="${cp.phase}">
+        <div class="imm-topic">${lesson.emoji} ${esc(lesson.cat)} · ${esc(lesson.level)}</div>
+        <h2>${esc(lesson.titleJa)}</h2>
+        <div class="imm-progress"><i style="width:${((cp.sentenceIndex * 4 + step) / (lesson.sentences.length * 4 + lesson.production.length) * 100)}%"></i></div>
+        <div class="imm-step">${step}/4　${heading}</div>
+        ${cp.phase === 'listen' ? `<div class="imm-listen-mark">🎧<b>画面を見ずに、音のまとまりを聞く</b><small>全部わからなくても大丈夫です</small></div>` : ''}
+        ${showEnglish ? `<div class="imm-en">${esc(sentence.en)}</div>` : ''}
+        ${showMeaning ? `<div class="imm-ja">${esc(sentence.ja)}</div>${this.breakdownHtml(sentence)}` : ''}
+        ${showEnglish ? `<button class="q-say imm-replay" id="imm-replay">🔊 <span>この英文を聞く</span></button>` : ''}
+        <button class="btn-primary" id="imm-next">${nextLabel} ▶</button>
+      </div>`;
+
+    if (showEnglish) $('#imm-replay').onclick = () => sayFrom($('#imm-replay'), sentence.en, cp.phase === 'relisten' ? 0.9 : 0.82);
+    this.bindOnce('#imm-next', () => {
+      if (cp.phase === 'listen') this.immersionCheckpoint({ phase: 'read' });
+      else if (cp.phase === 'read') this.immersionCheckpoint({ phase: 'meaning' });
+      else if (cp.phase === 'meaning') this.immersionCheckpoint({ phase: 'relisten' });
+      else if (cp.sentenceIndex + 1 < lesson.sentences.length) {
+        this.immersionCheckpoint({ sentenceIndex: cp.sentenceIndex + 1, phase: 'listen', recorded: false });
+      } else this.startImmersionOutput();
+    });
+
+    /* 状態は変えず、現在のタップ操作の同期範囲で音声だけを開始する。 */
+    if (cp.phase === 'listen' || cp.phase === 'relisten') Speech.say(sentence.en, cp.phase === 'listen' ? 0.78 : 0.9);
+  },
+
+  startImmersionOutput() {
+    this.checkpoint = { ...this.checkpoint, phase: 'output', outputIndex: 0, revealed: false };
+    this.saveSession();
+    this.showImmersion();
+  },
+
+  showImmersionOutput(lesson) {
+    const cp = this.checkpoint;
+    const item = lesson.production[cp.outputIndex];
+    if (!item) return this.completeImmersionLesson();
+    $('#commute-stage-label').textContent = `確認 ${cp.outputIndex + 1}/${lesson.production.length}`;
+    $('#commute-body').innerHTML = `
+      <div class="cm-stage imm-card imm-output" data-revealed="${cp.revealed ? 'true' : 'false'}">
+        <div class="imm-topic">${lesson.emoji} ${esc(lesson.titleJa)}</div>
+        <div class="imm-step">直前の言い方を使う</div>
+        <div class="imm-output-ja">${esc(item.ja)}</div>
+        <div class="cm-hint">頭の中で英語にしてください。完璧でなくてもOKです</div>
+        ${cp.revealed ? `
+          <div class="imm-answer">${esc(item.answer)}</div>
+          <button class="q-say imm-replay" id="imm-answer-audio">🔊 <span>答えの音声を聞く</span></button>
+          <div class="imm-grade">
+            <button class="btn-ghost" data-grade="wrong">要復習</button>
+            <button class="btn-primary" data-grade="correct">できた</button>
+          </div>` : `<button class="btn-primary" id="imm-reveal">答えを見る</button>`}
+      </div>`;
+
+    if (!cp.revealed) {
+      this.bindOnce('#imm-reveal', () => this.immersionCheckpoint({ revealed: true }));
+      return;
+    }
+    $('#imm-answer-audio').onclick = () => sayFrom($('#imm-answer-audio'), item.answer, 0.86);
+    $$('#commute-body [data-grade]').forEach(button => {
+      button.onclick = () => {
+        if (button.disabled) return;
+        $$('#commute-body [data-grade]').forEach(x => { x.disabled = true; });
+        Speech.stop();
+        const result = button.dataset.grade;
+        Store.recordEncounter('production:' + item.id, 'production', result);
+        if (result === 'correct') Store.addXp(10); else Store.addXp(3);
+        if (cp.outputIndex + 1 >= lesson.production.length) this.completeImmersionLesson();
+        else this.immersionCheckpoint({ outputIndex: cp.outputIndex + 1, revealed: false });
+      };
+    });
+  },
+
+  completeImmersionLesson() {
+    if (this._transitionLocked) return;
+    this._transitionLocked = true;
+    const lesson = this._iItems[this.checkpoint.lessonIndex];
+    this.planDone++;
+    this.updateBar();
+    const nextLesson = this.checkpoint.lessonIndex + 1;
+    if (nextLesson < this._iItems.length) {
+      this.checkpoint = { ...this.checkpoint, lessonIndex: nextLesson, sentenceIndex: 0, phase: 'listen', outputIndex: 0, revealed: false, recorded: false };
+      this.saveSession();
+      this._transitionLocked = false;
+      this.showImmersion();
+    } else {
+      this._transitionLocked = false;
+      if (!this._voiceOffered && typeof RealtimePractice !== 'undefined') {
+        this._voiceOffered = true;
+        this.saveSession();
+        RealtimePractice.offer(lesson, () => this.nextStage());
+      } else this.nextStage();
+    }
   },
 
   /* ---------- 今日の読みもの ---------- */
@@ -323,9 +520,9 @@ const Commute = {
     };
     $('#cm-gnext').onclick = () => { Speech.stop(); this.clearTimers(); advance(); };
 
-    /* 例文を順に読み上げてから、間を置いて自動で次へ */
+    /* 例文は続けて読むが、次の項目へはボタン操作でのみ進む。 */
     const lines = g.ex.slice(0, 2).map(e => e.en);
-    Speech.chain(lines, 0.82, () => this.after(3500, advance));
+    Speech.chain(lines, 0.82);
   },
 
   /* ---------- ②精読 ----------
@@ -391,11 +588,11 @@ const Commute = {
     };
     $('#cm-pnext').onclick = () => { Speech.stop(); this.clearTimers(); advance(); };
 
-    /* 通しで1回 → かたまりごとに1回 → 通しでもう1回 → 次へ */
+    /* 通しで1回 → かたまりごとに1回 → 通しでもう1回。遷移はボタンのみ。 */
     Speech.say(sentence, 0.82, () => {
       this.after(600, () => {
         Speech.chain(p.chunks.map(c => c.t), 0.68, () => {
-          this.after(500, () => Speech.say(sentence, 0.9, () => this.after(2600, advance)));
+          this.after(500, () => Speech.say(sentence, 0.9));
         });
       });
     });
@@ -423,11 +620,7 @@ const Commute = {
       </div>`;
     $('#cm-next').onclick = () => { Speech.stop(); this.clearTimers(); this._sIdx++; this.showShadow(); };
     Store.addXp(1);
-    Speech.say(it.en, 0.72, () => {
-      this.after(500, () => Speech.say(it.en, 1.0, () => {
-        this.after(1300, () => { this._sIdx++; this.showShadow(); });
-      }));
-    });
+    Speech.say(it.en, 0.72, () => this.after(500, () => Speech.say(it.en, 1.0)));
   },
 
   /* ---------- 2) 単語カード ---------- */
@@ -450,7 +643,6 @@ const Commute = {
         <button class="btn-primary" id="cm-reveal">答えを見る</button>
       </div>`;
     $('#cm-reveal').onclick = () => this.revealFlash();
-    this.after(6000, () => this.revealFlash());
   },
   revealFlash() {
     this.clearTimers();
@@ -514,14 +706,14 @@ const Commute = {
       </div>`);
     Store.addXp(3);
     const readyNext = () => {
+      if ($('#cm-drill-next')) return;
       body.insertAdjacentHTML('beforeend', `<button class="btn-ghost small" id="cm-drill-next">次へ ▶</button>`);
       const nb = $('#cm-drill-next');
       if (nb) nb.onclick = () => { this._dIdx++; this.showDrill(); };
-      this.after(8000, () => { this._dIdx++; this.showDrill(); });
     };
+    readyNext();
     Speech.say(it.en, 0.85, () => {
       if (it.reply) this.after(450, () => Speech.say(it.reply, 0.9, readyNext));
-      else readyNext();
     });
   },
 
@@ -561,19 +753,22 @@ const Commute = {
     }
     this.planDone++; this.updateBar();
     const it = this._qItems[this._qIdx];
+    this._qLocked = false;
     $('#commute-stage-label').textContent = `仕上げクイズ ${this._qIdx + 1}/${this._qItems.length}`;
     $('#commute-body').innerHTML = `
       <div class="cm-stage">
         <div class="q-kind">${esc(it.kind)}</div>
         <div class="q-text${it.small ? ' small' : ''}">${esc(it.text)}</div>
         ${it.sub ? `<div class="q-sub">${esc(it.sub)}</div>` : ''}
-        ${it.say ? `<button class="q-say" id="cm-q-say">🔊 <span>音声を聞く</span></button>` : ''}
+        ${it.promptAudio ? `<button class="q-say" id="cm-q-say">🔊 <span>問題の音声を聞く</span></button>` : ''}
         <div class="q-choices">${it.choices.map((c, i) => `<button class="q-choice" data-n="${i}">${esc(c)}</button>`).join('')}</div>
       </div>`;
-    if (it.say) $('#cm-q-say').onclick = () => sayFrom($('#cm-q-say'), it.say, 0.88);
+    if (it.promptAudio) $('#cm-q-say').onclick = () => sayFrom($('#cm-q-say'), it.promptAudio, 0.88);
     $$('#commute-body .q-choice').forEach(b => { b.onclick = () => this.answerQuiz(+b.dataset.n); });
   },
   answerQuiz(n) {
+    if (this._qLocked) return;
+    this._qLocked = true;
     const it = this._qItems[this._qIdx];
     const ok = n === it.answer;
     Store.record(it.key, ok);
@@ -585,12 +780,18 @@ const Commute = {
       else if (idx === n) b.classList.add('ng');
       else b.classList.add('dim');
     });
-    if (!ok && it.say) Speech.say(it.say, 0.85);
-
     const note = document.createElement('div');
     note.className = 'q-note';
     note.innerHTML = (ok ? '<b>正解</b><br>' : '<b>不正解</b><br>') + it.note;
     $('#commute-body .cm-stage').appendChild(note);
+
+    if (it.answerAudio) {
+      const audio = document.createElement('button');
+      audio.className = 'q-say';
+      audio.innerHTML = '🔊 <span>答えの音声を聞く</span>';
+      audio.onclick = () => sayFrom(audio, it.answerAudio, 0.85);
+      $('#commute-body .cm-stage').appendChild(audio);
+    }
 
     const next = document.createElement('button');
     next.className = 'q-next';
@@ -619,7 +820,9 @@ const Commute = {
       parseCount: (this._pItems || []).length,
       grammarDone: (Store.d.grammarRead || []).length,
       grammarTotal: typeof GRAMMAR !== 'undefined' ? GRAMMAR.length : 0,
+      mode: this.mode,
     };
+    Store.recordLearningSession({ mode: this.mode, minutes: this.minutes, lessons: this.planDone });
     Nav.go('commute');
     this.renderSetup(true);
     Home.render();
@@ -659,5 +862,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const quit = $('#commute-quit');
-  if (quit) quit.onclick = () => { Speech.stop(); Commute.clearTimers(); Commute.saveSession(); Nav.go('home'); };
+  if (quit) quit.onclick = () => {
+    Speech.stop(); Commute.clearTimers(); Commute.saveSession();
+    if (typeof RealtimePractice !== 'undefined') RealtimePractice.abort();
+    Nav.go('home');
+  };
 });
