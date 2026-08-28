@@ -76,11 +76,21 @@ function mcSvg(id) {
       <stop offset="1" stop-color="${O.water}"/>
     </linearGradient>
     <linearGradient id="silver-${u}" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f9ffff"/>
-      <stop offset=".34" stop-color="#c9e2e3"/>
-      <stop offset=".62" stop-color="#87acb1"/>
-      <stop offset="1" stop-color="#50757d"/>
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".16" stop-color="#dff5f5"/>
+      <stop offset=".42" stop-color="#7da6ad"/>
+      <stop offset=".66" stop-color="#d7eeee"/>
+      <stop offset="1" stop-color="#345c65"/>
     </linearGradient>
+    <radialGradient id="volume-${u}" cx="36%" cy="25%" r="78%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".9"/>
+      <stop offset=".34" stop-color="#bce2e4" stop-opacity=".12"/>
+      <stop offset=".74" stop-color="#183f46" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#102f36" stop-opacity=".52"/>
+    </radialGradient>
+    <radialGradient id="eye-${u}" cx="34%" cy="28%" r="72%">
+      <stop offset="0" stop-color="#8be9e1"/><stop offset=".38" stop-color="#225d64"/><stop offset="1" stop-color="#081c21"/>
+    </radialGradient>
     <linearGradient id="fin-${u}" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${O.accent}" stop-opacity=".9"/>
       <stop offset="1" stop-color="#315d64" stop-opacity=".72"/>
@@ -91,27 +101,38 @@ function mcSvg(id) {
     <filter id="soft-${u}" x="-30%" y="-30%" width="160%" height="160%">
       <feGaussianBlur stdDeviation="5"/>
     </filter>
+    <filter id="fish-shadow-${u}" x="-35%" y="-40%" width="180%" height="190%">
+      <feDropShadow dx="0" dy="9" stdDeviation="7" flood-color="#113c43" flood-opacity=".27"/>
+    </filter>
+    <filter id="glow-${u}" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="3.5"/>
+    </filter>
   </defs>
 
-  <rect x="6" y="8" width="308" height="204" rx="52" fill="url(#water-${u})" opacity=".82"/>
+  <rect x="6" y="8" width="308" height="204" rx="52" fill="url(#water-${u})" opacity=".9"/>
+  <path class="tomoya-caustic caustic-one" d="M20 68 C80 24 124 91 177 48 S264 35 308 63" fill="none" stroke="#fff" stroke-width="10" opacity=".2" filter="url(#soft-${u})"/>
+  <path class="tomoya-caustic caustic-two" d="M18 170 C70 138 123 190 175 154 S258 138 306 168" fill="none" stroke="${O.accent}" stroke-width="8" opacity=".11" filter="url(#soft-${u})"/>
   <g class="tomoya-bubbles" fill="none" stroke="${O.accent}" stroke-width="2" opacity=".45">
-    <circle cx="268" cy="48" r="7"/><circle cx="287" cy="29" r="4"/><circle cx="281" cy="70" r="3"/>
+    <circle class="bubble b1" cx="268" cy="48" r="7"/><circle class="bubble b2" cx="287" cy="29" r="4"/><circle class="bubble b3" cx="281" cy="70" r="3"/>
   </g>
   <ellipse class="mc-floor" cx="164" cy="177" rx="99" ry="12" fill="#315d64" opacity=".18" filter="url(#soft-${u})"/>
 
-  <g class="mc-all tomoya-all">
+  <g class="mc-all tomoya-all" filter="url(#fish-shadow-${u})">
     <path class="tomoya-tail" d="M246 105 C280 73 303 78 297 109 C304 142 280 149 246 120 Z" fill="url(#fin-${u})" stroke="#315d64" stroke-width="3"/>
-    <path d="M139 75 C160 44 193 44 207 80" fill="url(#fin-${u})" stroke="#315d64" stroke-width="3"/>
-    <path d="M155 139 C174 164 201 163 209 135" fill="url(#fin-${u})" stroke="#315d64" stroke-width="3"/>
+    <path class="tomoya-fin tomoya-fin-top" d="M139 75 C160 44 193 44 207 80" fill="url(#fin-${u})" stroke="#315d64" stroke-width="3"/>
+    <path class="tomoya-fin tomoya-fin-bottom" d="M155 139 C174 164 201 163 209 135" fill="url(#fin-${u})" stroke="#315d64" stroke-width="3"/>
     <path class="tomoya-body" d="M42 110 C70 57 170 54 251 94 C270 104 270 120 251 129 C164 169 72 158 42 122 C35 117 35 114 42 110 Z" fill="url(#silver-${u})" stroke="#315d64" stroke-width="4"/>
-    <path d="M101 73 C150 61 205 70 251 95" fill="none" stroke="#ffffff" stroke-width="7" opacity=".42" stroke-linecap="round"/>
+    <path d="M42 110 C70 57 170 54 251 94 C270 104 270 120 251 129 C164 169 72 158 42 122 C35 117 35 114 42 110 Z" fill="url(#volume-${u})"/>
+    <path class="tomoya-highlight" d="M96 74 C145 59 210 72 250 95" fill="none" stroke="#ffffff" stroke-width="8" opacity=".58" stroke-linecap="round" filter="url(#glow-${u})"/>
+    <path d="M108 78 C150 67 205 78 235 94" fill="none" stroke="#fff" stroke-width="3.2" opacity=".72" stroke-linecap="round"/>
     <path d="M104 81 C148 71 207 79 242 98 L238 132 C191 151 137 154 96 140 Z" fill="url(#scales-${u})" opacity=".8"/>
     <path class="mc-arm-front" d="M142 111 C164 98 188 105 192 122 C174 129 157 135 139 132 Z" fill="url(#fin-${u})" stroke="#315d64" stroke-width="3"/>
-    <path d="M87 78 C102 92 104 132 88 145" fill="none" stroke="#557c83" stroke-width="3" opacity=".78"/>
+    <path class="tomoya-gill" d="M87 78 C102 92 104 132 88 145" fill="none" stroke="#557c83" stroke-width="3" opacity=".78"/>
     <g class="mc-head">
       <circle cx="70" cy="105" r="18" fill="#f7ffff" stroke="#315d64" stroke-width="3"/>
-      <circle cx="72" cy="107" r="9" fill="#183f46"/>
+      <circle cx="72" cy="107" r="9" fill="url(#eye-${u})"/>
       <circle cx="68" cy="102" r="3.6" fill="#fff"/>
+      <path class="tomoya-eyelid" d="M55 104 Q70 90 86 104" fill="#7da6ad" stroke="#315d64" stroke-width="2.5"/>
       <ellipse cx="62" cy="129" rx="9" ry="5" fill="${O.accent}" opacity=".2"/>
       <path class="mc-mouth" d="M45 126 Q55 133 67 126" fill="none" stroke="#315d64" stroke-width="3" stroke-linecap="round"/>
     </g>

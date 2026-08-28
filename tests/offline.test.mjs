@@ -9,7 +9,7 @@ test('Service Workerの静的キャッシュ参照が存在する', () => {
   const context = { self:{ addEventListener:()=>{}, AUDIO_FILES:[] }, importScripts:()=>{} };
   vm.createContext(context);
   vm.runInContext(read('sw.js') + '\nglobalThis.ASSETS_OUT=ASSETS;globalThis.CACHE_OUT=CACHE;', context);
-  assert.equal(context.CACHE_OUT, 'tomoya-house-v17');
+  assert.equal(context.CACHE_OUT, 'tomoya-house-v18');
   assert.ok(context.ASSETS_OUT.includes('./data/immersion.js'));
   assert.ok(context.ASSETS_OUT.includes('./wordbuild.js'));
   assert.ok(context.ASSETS_OUT.includes('./realtime.js'));
