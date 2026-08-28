@@ -8,7 +8,7 @@
 
 importScripts('./audio/files.js');
 
-const CACHE = 'tomoya-house-v18';
+const CACHE = 'tomoya-house-v19';
 
 /* すべて相対パス。GitHub Pages のサブディレクトリ配信でもそのまま動く */
 const ASSETS = [

@@ -17,6 +17,31 @@ const NOTE = { C: 32.70, D: 36.71, Eb: 38.89, E: 41.20, F: 43.65,
                G: 49.00, Ab: 51.91, A: 55.00, Bb: 58.27, B: 61.74 };
 
 const BEATS = {
+  /* 学習用：4小節でゆっくり景色が変わる水辺のローファイ */
+  riverside: {
+    name: 'Riverside Lo-fi', bpm: 78, swing: .16, era: 'study · calm', mood: true,
+    about: { ja:'水辺の夜をイメージした、柔らかい4小節のローファイ。低いコードがゆっくり変わり、英語の音声を邪魔しません。', ear:'丸いキックと、4小節で変わるコードの色を聴く。', makers:['ともやの家'], tracks:[], term:{en:'lo-fi',ja:'角を丸めた落ち着いた質感'} },
+    kick:[1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0], snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+    hat:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], open:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0],
+    bass:['C',null,null,null,null,null,null,null,'G',null,null,null,null,null,null,null], chords:[['C','Eb','G'],['Ab','C','Eb'],['F','Ab','C'],['G','Bb','D']],
+    tone:{kickHi:125,kickLo:48,bassDecay:.6,hatGain:.075,soft:true,padWave:'triangle',padGain:.042,padCutoff:1150},
+  },
+  midnight: {
+    name: 'Midnight Aquarium', bpm: 68, swing: .08, era: 'study · deep', mood: true,
+    about: { ja:'深夜の水槽のような、間を広く取ったアンビエント寄りのビート。音数を減らし、低いコードと泡のような高音だけを残しています。', ear:'無音の間と、長く残るコードを聴く。', makers:['ともやの家'], tracks:[], term:{en:'ambient',ja:'空間や雰囲気を作る音楽'} },
+    kick:[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], snare:[0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],
+    hat:[0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0], open:[0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
+    bass:['D',null,null,null,null,null,null,null,null,null,null,null,'A',null,null,null], chords:[['D','F','A'],['Bb','D','F'],['F','A','C'],['C','E','G']],
+    tone:{kickHi:105,kickLo:38,bassDecay:1.05,hatGain:.05,soft:true,padWave:'sine',padGain:.055,padCutoff:850},
+  },
+  morning: {
+    name: 'Morning Window', bpm: 88, swing: .12, era: 'study · warm', mood: true,
+    about: { ja:'朝の窓辺をイメージした明るめの4小節。柔らかいコードと軽いリズムで、STARTから気持ちよく入るためのBGMです。', ear:'明るいコード進行と、控えめな裏拍を聴く。', makers:['ともやの家'], tracks:[], term:{en:'warm',ja:'温かく柔らかい音色'} },
+    kick:[1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0], snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+    hat:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], open:[0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0],
+    bass:['F',null,null,null,null,null,'A',null,'C',null,null,null,null,null,'G',null], chords:[['F','A','C'],['C','E','G'],['D','F','A'],['Bb','D','F']],
+    tone:{kickHi:138,kickLo:52,bassDecay:.45,hatGain:.085,soft:true,padWave:'triangle',padGain:.038,padCutoff:1500},
+  },
   /* 70〜80年代：ファンクのブレイク */
   funk: {
     name: 'Funk Break', bpm: 98, swing: .14, era: '1973–1983',
@@ -306,6 +331,26 @@ const Beat = {
     o.start(t); o.stop(t + .65);
   },
 
+  padChord(t, notes, tone, duration) {
+    if (!notes || !notes.length) return;
+    const bus = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+    bus.gain.setValueAtTime(0, t);
+    bus.gain.linearRampToValueAtTime(tone.padGain || .04, t + .35);
+    bus.gain.setValueAtTime(tone.padGain || .04, t + Math.max(.4, duration - .65));
+    bus.gain.linearRampToValueAtTime(0, t + duration);
+    filter.type = 'lowpass'; filter.frequency.value = tone.padCutoff || 1200; filter.Q.value = .7;
+    bus.connect(filter); filter.connect(this.master);
+    notes.forEach((name, i) => {
+      if (!NOTE[name]) return;
+      const osc = this.ctx.createOscillator();
+      osc.type = tone.padWave || 'triangle';
+      osc.frequency.value = NOTE[name] * (i === 0 ? 4 : 8);
+      osc.detune.value = (i - 1) * 3;
+      osc.connect(bus); osc.start(t); osc.stop(t + duration + .05);
+    });
+  },
+
   /* ---- 進行 ---- */
   schedule() {
     const p = BEATS[this.key];
@@ -314,10 +359,13 @@ const Beat = {
 
     while (this._next < this.ctx.currentTime + 0.18) {
       const s = this._step % 16;
+      const bar = Math.floor(this._step / 16) % 4;
       /* スイング：偶数番目の16分を後ろにずらす */
       const sw = (s % 2 === 1) ? stepDur * (p.swing || 0) : 0;
       const t = this._next + sw;
       const tone = p.tone;
+
+      if (s === 0 && p.chords && p.chords[bar]) this.padChord(t, p.chords[bar], tone, stepDur * 15.6);
 
       if (p.kick[s])  this.kick(t, tone);
       if (p.snare[s]) this.snare(t, tone);

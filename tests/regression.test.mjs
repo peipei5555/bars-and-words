@@ -17,9 +17,9 @@ test('学習項目は音声やタイマーだけでは自動遷移しない', ()
 test('回答音声は回答前の4択DOMへ置かない', () => {
   const app = read('app.js');
   const commute = read('commute.js');
-  assert.ok(app.includes('${it.promptAudio ? `<button class="q-say"'));
+  assert.ok(app.includes('${it.promptAudio && Speech.hasNatural(it.promptAudio) ? `<button class="q-say"'));
   assert.ok(!app.includes('${it.say ? `<button class="q-say" id="q-say"'));
-  assert.ok(commute.includes('${it.promptAudio ? `<button class="q-say"'));
+  assert.ok(commute.includes('${it.promptAudio && Speech.hasNatural(it.promptAudio) ? `<button class="q-say"'));
   assert.ok(!commute.includes('${it.say ? `<button class="q-say" id="cm-q-say"'));
   assert.ok(app.includes("promptAudio: o.promptAudio || (o.autoSay ? o.say || '' : '')"));
   assert.ok(app.includes("answerAudio: o.answerAudio || (!o.autoSay ? o.say || '' : '')"));
@@ -27,7 +27,7 @@ test('回答音声は回答前の4択DOMへ置かない', () => {
 
 test('旧セッションの不明なphaseは安全に破棄する', () => {
   const src = read('commute.js');
-  assert.ok(src.includes("const phases = ['listen', 'read', 'meaning', 'relisten', 'output']"));
+  assert.ok(src.includes("const phases = ['listen', 'read', 'meaning', 'relisten', 'output', 'quiz']"));
   assert.ok(src.includes('if (!phases.includes(s.checkpoint.phase)) s.checkpoint = null'));
 });
 

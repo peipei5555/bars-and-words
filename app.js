@@ -246,6 +246,10 @@ const Speech = {
   _audio: null,
   _utterance: null,
 
+  hasNatural(text) {
+    return !!(text && typeof AUDIO_MANIFEST !== 'undefined' && AUDIO_MANIFEST[text]);
+  },
+
   /* 声の品質を推定する。iOS/macOS は名前に (Enhanced)/(Premium) が付く */
   quality(v) {
     const n = v.name || '';
@@ -1233,13 +1237,13 @@ const Quiz = {
       <div class="q-kind">${esc(it.kind)}</div>
       <div class="q-text${it.small ? ' small' : ''}">${esc(it.text)}</div>
       ${it.sub ? `<div class="q-sub">${esc(it.sub)}</div>` : ''}
-      ${it.promptAudio ? `<button class="q-say" id="q-say">🔊 <span>問題の音声を聞く</span></button>` : ''}
+      ${it.promptAudio && Speech.hasNatural(it.promptAudio) ? `<button class="q-say" id="q-say">🔊 <span>自然音声で問題を聞く</span></button>` : ''}
       ${it.playBeat ? `<button class="q-say q-beat" id="q-beat">🎧 <span>リズムを鳴らす</span></button>` : ''}
       <div class="q-choices">
         ${it.choices.map((c, n) => `<button class="q-choice" data-n="${n}">${esc(c)}</button>`).join('')}
       </div>`;
 
-    if (it.promptAudio) {
+    if (it.promptAudio && Speech.hasNatural(it.promptAudio)) {
       const b = $('#q-say');
       b.onclick = () => sayFrom(b, it.promptAudio, 0.88);
       if (it.autoSay) setTimeout(() => Speech.say(it.promptAudio, 0.88), 400);
@@ -1282,7 +1286,7 @@ const Quiz = {
     note.innerHTML = (ok ? '<b>正解</b><br>' : '<b>不正解</b><br>') + it.note;
     $('#quiz-body').appendChild(note);
 
-    if (it.answerAudio) {
+    if (it.answerAudio && Speech.hasNatural(it.answerAudio)) {
       const audio = document.createElement('button');
       audio.className = 'q-say';
       audio.innerHTML = '🔊 <span>答えの音声を聞く</span>';

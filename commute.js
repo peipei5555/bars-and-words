@@ -224,7 +224,7 @@ const Commute = {
       const s = JSON.parse(localStorage.getItem('bars-words-session'));
       if (!s || !Array.isArray(s.plan) || s.idx >= s.plan.length) return null;
       if (s.checkpoint) {
-        const phases = ['listen', 'read', 'meaning', 'relisten', 'output'];
+        const phases = ['listen', 'read', 'meaning', 'relisten', 'output', 'quiz'];
         if (!phases.includes(s.checkpoint.phase)) s.checkpoint = null;
       }
       return s;
@@ -253,14 +253,19 @@ const Commute = {
 
   /* ---------- Immersion Learning ---------- */
   runImmersion(stage) {
-    this._iItems = (stage.lessonIds || []).map(immersionLesson).filter(Boolean);
+    this._iItems = (stage.lessonIds || []).map(immersionLesson).filter(Boolean).map(lesson => {
+      /* 初回の「今日の英語」は、3文すべてを詰め込まず2文に絞る。 */
+      const sentences = lesson.sentences.slice(0, 2);
+      const sourceIds = new Set(sentences.map(x => x.id));
+      return { ...lesson, sentences, production: lesson.production.filter(x => sourceIds.has(x.source)).slice(0, 2) };
+    });
     if (!this._iItems.length) return this.nextStage();
     const cp = this.checkpoint;
     if (!cp || cp.stageIndex !== this.idx || cp.type !== 'immersion') {
       this.checkpoint = {
         type: 'immersion', stageIndex: this.idx, lessonIndex: 0,
         sentenceIndex: 0, phase: 'listen', outputIndex: 0,
-        revealed: false, recorded: false,
+        revealed: false, recorded: false, quizDone: false, quizAnswered: false,
       };
     }
     this.showImmersion();
@@ -306,6 +311,7 @@ const Commute = {
     $('#commute-stage-label').textContent = `今日の英語 ${cp.lessonIndex + 1}/${this._iItems.length}`;
 
     if (cp.phase === 'output') return this.showImmersionOutput(lesson);
+    if (cp.phase === 'quiz') return this.showImmersionQuiz(lesson);
     const sentence = lesson.sentences[cp.sentenceIndex];
     if (!sentence) return this.startImmersionOutput();
 
@@ -400,13 +406,19 @@ const Commute = {
 
   completeImmersionLesson() {
     if (this._transitionLocked) return;
-    this._transitionLocked = true;
     const lesson = this._iItems[this.checkpoint.lessonIndex];
+    if (!this.checkpoint.quizDone) {
+      this.checkpoint = { ...this.checkpoint, phase: 'quiz', quizAnswered: false };
+      this.saveSession();
+      this.showImmersionQuiz(lesson);
+      return;
+    }
+    this._transitionLocked = true;
     this.planDone++;
     this.updateBar();
     const nextLesson = this.checkpoint.lessonIndex + 1;
     if (nextLesson < this._iItems.length) {
-      this.checkpoint = { ...this.checkpoint, lessonIndex: nextLesson, sentenceIndex: 0, phase: 'listen', outputIndex: 0, revealed: false, recorded: false };
+      this.checkpoint = { ...this.checkpoint, lessonIndex: nextLesson, sentenceIndex: 0, phase: 'listen', outputIndex: 0, revealed: false, recorded: false, quizDone: false, quizAnswered: false };
       this.saveSession();
       this._transitionLocked = false;
       this.showImmersion();
@@ -418,6 +430,57 @@ const Commute = {
         RealtimePractice.offer(lesson, () => this.nextStage());
       } else this.nextStage();
     }
+  },
+
+  showImmersionQuiz(lesson) {
+    const cp = this.checkpoint;
+    const index = (Number(ymd(new Date()).replaceAll('-', '')) + cp.lessonIndex) % lesson.sentences.length;
+    const sentence = lesson.sentences[index];
+    const distractors = IMMERSION_LESSONS
+      .flatMap(x => x.sentences)
+      .filter(x => x.id !== sentence.id && x.ja !== sentence.ja)
+      .slice(0, 8);
+    const picked = sample(distractors, 2);
+    const choices = shuffle([sentence.ja, ...picked.map(x => x.ja)]);
+    const answer = choices.indexOf(sentence.ja);
+    $('#commute-stage-label').textContent = '今日のミニクイズ';
+    $('#commute-body').innerHTML = `
+      <div class="cm-stage imm-card imm-quiz">
+        <div class="imm-topic">${lesson.emoji} 今日の仕上げ</div>
+        <div class="imm-step">意味が近いものを選ぶ</div>
+        <div class="imm-en">${esc(sentence.en)}</div>
+        <div class="q-choices">
+          ${choices.map((choice, i) => `<button class="q-choice" data-n="${i}">${esc(choice)}</button>`).join('')}
+        </div>
+      </div>`;
+    $$('#commute-body .q-choice').forEach(button => {
+      button.onclick = () => {
+        if (cp.quizAnswered) return;
+        cp.quizAnswered = true;
+        const selected = +button.dataset.n;
+        const ok = selected === answer;
+        Store.recordEncounter('immersion-quiz:' + sentence.id, 'quiz', ok ? 'correct' : 'wrong');
+        $$('#commute-body .q-choice').forEach((choice, i) => {
+          choice.disabled = true;
+          if (i === answer) choice.classList.add('ok');
+          else if (i === selected) choice.classList.add('ng');
+          else choice.classList.add('dim');
+        });
+        const note = document.createElement('div');
+        note.className = 'q-note';
+        note.innerHTML = `${ok ? '<b>正解</b>' : '<b>不正解</b>'}<br>${esc(sentence.ja)}`;
+        $('#commute-body .cm-stage').appendChild(note);
+        const next = document.createElement('button');
+        next.className = 'q-next';
+        next.textContent = '今日の英語を完了';
+        next.onclick = () => {
+          this.checkpoint = { ...this.checkpoint, quizDone: true, quizAnswered: true };
+          this.saveSession();
+          this.completeImmersionLesson();
+        };
+        $('#commute-body .cm-stage').appendChild(next);
+      };
+    });
   },
 
   /* ---------- 今日の読みもの ---------- */
@@ -760,10 +823,10 @@ const Commute = {
         <div class="q-kind">${esc(it.kind)}</div>
         <div class="q-text${it.small ? ' small' : ''}">${esc(it.text)}</div>
         ${it.sub ? `<div class="q-sub">${esc(it.sub)}</div>` : ''}
-        ${it.promptAudio ? `<button class="q-say" id="cm-q-say">🔊 <span>問題の音声を聞く</span></button>` : ''}
+        ${it.promptAudio && Speech.hasNatural(it.promptAudio) ? `<button class="q-say" id="cm-q-say">🔊 <span>自然音声で問題を聞く</span></button>` : ''}
         <div class="q-choices">${it.choices.map((c, i) => `<button class="q-choice" data-n="${i}">${esc(c)}</button>`).join('')}</div>
       </div>`;
-    if (it.promptAudio) $('#cm-q-say').onclick = () => sayFrom($('#cm-q-say'), it.promptAudio, 0.88);
+    if (it.promptAudio && Speech.hasNatural(it.promptAudio)) $('#cm-q-say').onclick = () => sayFrom($('#cm-q-say'), it.promptAudio, 0.88);
     $$('#commute-body .q-choice').forEach(b => { b.onclick = () => this.answerQuiz(+b.dataset.n); });
   },
   answerQuiz(n) {
@@ -785,7 +848,7 @@ const Commute = {
     note.innerHTML = (ok ? '<b>正解</b><br>' : '<b>不正解</b><br>') + it.note;
     $('#commute-body .cm-stage').appendChild(note);
 
-    if (it.answerAudio) {
+    if (it.answerAudio && Speech.hasNatural(it.answerAudio)) {
       const audio = document.createElement('button');
       audio.className = 'q-say';
       audio.innerHTML = '🔊 <span>答えの音声を聞く</span>';
