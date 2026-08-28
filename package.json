@@ -2,7 +2,7 @@
   "name": "tomoya-house-english",
   "private": true,
   "scripts": {
-    "check": "node --check app.js && node --check realtime.js && node --check commute.js && node --check data/immersion.js && node --check tools/generate-openai-audio.mjs && node --check tools/serve-realtime.mjs",
+    "check": "node --check app.js && node --check realtime.js && node --check commute.js && node --check wordbuild.js && node --check data/immersion.js && node --check tools/generate-openai-audio.mjs && node --check tools/serve-realtime.mjs",
     "test": "node --test \"tests/*.test.mjs\"",
     "audio:list": "node tools/generate-openai-audio.mjs --list",
     "serve:realtime": "node tools/serve-realtime.mjs"

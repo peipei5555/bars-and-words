@@ -37,6 +37,8 @@ const Store = {
       clearedEras: [], // バトルに勝ってクリアした時代の id（ツアーの進行はこれ）
       grammarRead: [], // 読み終えた文法項目の id
       parseRead: [],   // 構造解説を開いた英文
+      words: {},       // 単語で組み立て：語ごとの成否 { dope: {en,ok,ng,streak,lastAt} }
+      wordbuildSessions: 0,
       answered: 0,
       correct: 0,
       streak: 0,
@@ -480,6 +482,8 @@ const Nav = {
       voice:     () => VoiceSet.render(),
       path:      () => Path.render(),
       grammar:   () => Grammar.renderList(),
+      /* WordBuild は wordbuild.js 側。const なので window には載らない */
+      wordbuild: () => { if (typeof WordBuild !== 'undefined') WordBuild.renderHome(); },
     }[id] || (() => {}))();
   },
   soon(t, p) { $('#soon-h1').textContent = t; $('#soon-p').innerHTML = p; this.go('soon'); },
@@ -1411,6 +1415,18 @@ const Stats = {
       return { ...g, seen, pct: Math.round(seen / g.total * 100) };
     });
 
+    /* 単語で組み立ての記録。入口の画面と同じ数を出すため WordMemory に数えさせる。
+       wordbuild.js を読み込んでいない場合だけ、ここで素朴に数える
+       ※ WordMemory は const なので window には載らない。typeof で見ること */
+    const wordCounts = typeof WordMemory !== 'undefined'
+      ? WordMemory.counts()
+      : Object.values(d.words || {}).reduce((acc, w) => {
+          if (!w) return acc;
+          if (w.streak >= 3) acc.mastered++;
+          else if (w.ng > 0) acc.weak++;
+          return acc;
+        }, { mastered: 0, weak: 0 });
+
     const weak = Object.entries(d.quiz)
       .filter(([, v]) => v.ng > 0)
       .map(([k, v]) => {
@@ -1421,6 +1437,7 @@ const Stats = {
         if (p === 'red')   ja = (REDUCTIONS.find(s => s.spoken === id) || {}).ja || '';
         if (p === 'talk')  ja = (TALK.find(s => s.en === id) || {}).ja || '';
         if (p === 'kn')    ja = '知識クイズ';
+        if (p === 'wb')    ja = '単語で組み立て';
         return { id, ja, ng: v.ng, ok: v.ok };
       })
       .sort((a, b) => (b.ng / (b.ng + b.ok)) - (a.ng / (a.ng + a.ok)) || b.ng - a.ng)
@@ -1435,6 +1452,8 @@ const Stats = {
         <div class="stat-row"><span>学習した日</span><b>${d.days.length}</b></div>
         <div class="stat-row"><span>解答数</span><b>${d.answered}</b></div>
         <div class="stat-row"><span>正解率</span><b>${rate}%</b></div>
+        <div class="stat-row"><span>覚えた単語</span><b>${wordCounts.mastered}</b></div>
+        <div class="stat-row"><span>苦手な単語</span><b>${wordCounts.weak}</b></div>
       </div>
 
       <div class="stat-card">

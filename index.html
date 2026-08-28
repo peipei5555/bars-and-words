@@ -56,6 +56,9 @@
       <button class="quick-start" id="quick-start-btn">
         <span>⚡</span><b>ちょっと5分</b><small>いま一番効く復習</small><strong>START</strong>
       </button>
+      <button class="quick-start" id="wordbuild-cta-btn" data-go="wordbuild">
+        <span>🧩</span><b>単語で組み立て</b><small>押して並べる · 発音つき</small><strong>START</strong>
+      </button>
       <button class="resume-start" id="resume-start-btn" hidden>途中から再開</button>
       <div class="topic-preview" id="topic-preview">今日の読みものを準備中…</div>
       <div class="daily-note">考えなくてOK。上から順に進めます。</div>
@@ -112,7 +115,7 @@
       <button class="link" data-go="stats">記録を見る</button>
       <button class="link" data-go="about">このアプリについて</button>
       <button class="link" id="check-update">最新版を確認</button>
-      <span class="app-version">TOMOYA 1.5</span>
+      <span class="app-version">TOMOYA 1.6</span>
     </div>
   </section>
 
@@ -361,6 +364,26 @@
     </div>
   </section>
 
+  <!-- ================= 単語で組み立て：入口 ================= -->
+  <section class="screen" id="screen-wordbuild">
+    <header class="bar">
+      <button class="back" data-go="home">←</button>
+      <h1>単語で組み立て</h1>
+    </header>
+    <div id="wordbuild-body"></div>
+    <div class="pad"></div>
+  </section>
+
+  <!-- ================= 単語で組み立て：実行 ================= -->
+  <section class="screen" id="screen-wordbuild-run">
+    <header class="bar">
+      <button class="back" id="wb-quit">やめる</button>
+      <div class="qbar"><div class="qbar-fill" id="wb-bar-fill"></div></div>
+      <div class="qcount"><span id="wb-now">1</span>/<span id="wb-total">8</span></div>
+    </header>
+    <div class="quiz-body" id="wb-body"></div>
+  </section>
+
   <!-- ================= BGM（全画面共通で右下に出る） ================= -->
   <button class="bgm-fab" id="bgm-fab" aria-label="BGM">
     <span class="bgm-bars"><i></i><i></i><i></i><i></i></span>
@@ -416,6 +439,7 @@
 <script src="app.js"></script>
 <script src="realtime.js"></script>
 <script src="commute.js"></script>
+<script src="wordbuild.js"></script>
 
 <script>
 /* オフラインで動かすための登録。file:// で開いたときは何もしない。
