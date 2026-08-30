@@ -359,17 +359,19 @@ const Beat = {
 
     while (this._next < this.ctx.currentTime + 0.18) {
       const s = this._step % 16;
-      const bar = Math.floor(this._step / 16) % 4;
+      const bar = Math.floor(this._step / 16) % 8;
       /* スイング：偶数番目の16分を後ろにずらす */
       const sw = (s % 2 === 1) ? stepDur * (p.swing || 0) : 0;
       const t = this._next + sw;
       const tone = p.tone;
 
-      if (s === 0 && p.chords && p.chords[bar]) this.padChord(t, p.chords[bar], tone, stepDur * 15.6);
+      if (s === 0 && p.chords && p.chords[bar % p.chords.length]) this.padChord(t, p.chords[bar % p.chords.length], tone, stepDur * 15.6);
 
       if (p.kick[s])  this.kick(t, tone);
       if (p.snare[s]) this.snare(t, tone);
-      if (p.hat[s])   this.hat(t, tone, p.open && p.open[s]);
+      /* 8小節で「通常→ハットを抜く→戻す→フィル」の展開を作る。 */
+      const hatBreak = bar === 4 && s < 8;
+      if (p.hat[s] && !hatBreak) this.hat(t, tone, p.open && p.open[s]);
       if (p.open && p.open[s] && !p.hat[s]) this.hat(t, tone, true);
       if (p.lead && p.lead[s]) this.lead(t, tone);
 
@@ -377,8 +379,9 @@ const Beat = {
       if (p.roll && p.roll[s]) {
         for (let i = 0; i < 3; i++) this.hat(t + stepDur * i / 3, tone, false);
       }
+      if (bar === 7 && s >= 12 && s % 2 === 0) this.hat(t + stepDur / 3, tone, false);
 
-      if (p.bass && p.bass[s]) {
+      if (p.bass && p.bass[s] && !(bar === 6 && s < 8)) {
         let nxt = null;
         for (let i = 1; i <= 8; i++) {
           const v = p.bass[(s + i) % 16];

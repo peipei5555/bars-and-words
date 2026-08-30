@@ -62,6 +62,20 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='.055'/%3E%3C/svg%3E");
 }
 
+/* 単語チェック集中版。旧機能は削除せず、入口だけ隠して保全する。 */
+.focus-wordbuild #screen-home .hero-stats,
+.focus-wordbuild #screen-home .rank-row,
+.focus-wordbuild #screen-home .today-start:not(#wordbuild-cta-btn),
+.focus-wordbuild #screen-home .start-times,
+.focus-wordbuild #screen-home #quick-start-btn,
+.focus-wordbuild #screen-home .resume-start,
+.focus-wordbuild #screen-home .topic-preview,
+.focus-wordbuild #screen-home .daily-note,
+.focus-wordbuild #screen-home .more-learning { display: none !important; }
+.focus-wordbuild #wordbuild-cta-btn { margin-top: 0; background: linear-gradient(135deg,#174f55,#3f9692); color:#fff; }
+.focus-wordbuild #wordbuild-cta-btn small { color: rgba(255,255,255,.8); }
+.wb-explain { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: rgba(63,150,146,.10); line-height: 1.65; }
+
 #app { height: 100%; position: relative; z-index: 1; }
 
 .screen {

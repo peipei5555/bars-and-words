@@ -168,6 +168,25 @@ function wbQuestion(item, pool) {
   return { ...item, tiles: shuffle(tiles).map((t, id) => ({ ...t, id })), placed: [] };
 }
 
+/* 既存教材にある解説を優先して再利用する。 */
+function wbExplanation(item) {
+  if (typeof IMMERSION_LESSONS !== 'undefined') {
+    for (const lesson of IMMERSION_LESSONS) {
+      const s = (lesson.sentences || []).find(x => x.en === item.en);
+      if (s) return s.point || '';
+    }
+  }
+  if (typeof DRILLS !== 'undefined') {
+    const d = DRILLS.find(x => x.en === item.en);
+    if (d && d.note) return d.note;
+  }
+  if (typeof SLANG !== 'undefined') {
+    const s = SLANG.find(x => x.ex === item.en);
+    if (s && s.note) return s.note;
+  }
+  return `英語は「${item.target.map(wbKey).filter(Boolean).join(' → ')}」の順で意味を組み立てます。`;
+}
+
 /* 採点。位置ごとに合っているかを見る */
 function wbGrade(target, placed) {
   const marks = placed.map((w, i) => w === target[i]);
@@ -215,7 +234,7 @@ const WordBuild = {
 
     el.innerHTML = `
       <p class="lead">日本語の文を見て、<b>英単語のタイルを押して並べます</b>。
-        <b>押した単語はその場で発音します。</b>
+        単語を押して並べ、答え合わせのあとに<b>自然音声と解説</b>で確認します。
         外した語は「苦手な単語」に、続けて正解できた語は「覚えた単語」に貯まります。</p>
 
       <div class="wb-counts">
@@ -237,7 +256,7 @@ const WordBuild = {
 
       <div class="wb-list-card">
         <h2>苦手な単語</h2>
-        <p class="wb-note">押すと発音します。${WB_MASTER}回続けて正解すると「覚えた」へ移ります。</p>
+        <p class="wb-note">${WB_MASTER}回続けて正解すると「覚えた」へ移ります。</p>
         ${chips(weak.slice(0, 30), 'weak')}
       </div>
 
@@ -254,7 +273,7 @@ const WordBuild = {
 
   bindChips(root) {
     $$('.wb-chip', root).forEach(b => {
-      b.onclick = () => sayFrom(b, b.dataset.word, 0.85);
+      b.onclick = () => {};
     });
   },
 
@@ -287,7 +306,7 @@ const WordBuild = {
         <div class="wb-ja">${esc(it.ja)}</div>
         <div class="wb-line" id="wb-line"></div>
         <div class="wb-bank" id="wb-bank"></div>
-        <div class="wb-tip">単語を押すと発音します。並べ終えたら「答え合わせ」。</div>
+        <div class="wb-tip">単語を押して並べ、終えたら「答え合わせ」。</div>
         <button class="q-next" id="wb-check" disabled>答え合わせ</button>
       </div>`;
 
@@ -335,7 +354,6 @@ const WordBuild = {
     const it = this.cur();
     if (it.placed.includes(id) || it.placed.length >= it.target.length) return;
     it.placed.push(id);
-    this.speak(id);
     this.paint();
   },
 
@@ -344,7 +362,6 @@ const WordBuild = {
     const at = it.placed.indexOf(id);
     if (at < 0) return;
     it.placed.splice(at, 1);
-    this.speak(id);
     this.paint();
   },
 
@@ -384,7 +401,8 @@ const WordBuild = {
     const note = document.createElement('div');
     note.className = 'q-note';
     note.innerHTML = `${ok ? '<b>正解</b>' : '<b>おしい</b>'}<br>
-      <span class="wb-answer">${esc(it.en)}</span><br>${esc(it.ja)}`;
+      <span class="wb-answer">${esc(it.en)}</span><br>${esc(it.ja)}
+      <div class="wb-explain"><b>ここがポイント</b><br>${esc(wbExplanation(it))}</div>`;
     stage.appendChild(note);
 
     const say = document.createElement('button');
@@ -401,7 +419,7 @@ const WordBuild = {
 
     $('#wb-check').remove();
     /* 正しい文を読み上げて、耳でも確認できるようにする */
-    Speech.say(it.en, 0.85);
+    if (Speech.hasNatural && Speech.hasNatural(it.en)) Speech.say(it.en, 0.85);
     next.scrollIntoView({ behavior: 'smooth', block: 'end' });
   },
 
