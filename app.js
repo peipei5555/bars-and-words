@@ -244,10 +244,19 @@ const Speech = {
   pinned: null,       /* ペーさんが選んだ声の名前 */
   _chainId: 0,
   _audio: null,
+  _wordAudio: null,   /* 単語用に使い回す。iOS は new Audio() の連発が重い */
   _utterance: null,
+  _warned: false,
 
   hasNatural(text) {
     return !!(text && typeof AUDIO_MANIFEST !== 'undefined' && AUDIO_MANIFEST[text]);
+  },
+
+  /* ローカルの表示検証専用。公開環境では絶対に有効にならない */
+  silent() {
+    return typeof location !== 'undefined'
+      && ['127.0.0.1', 'localhost'].includes(location.hostname)
+      && new URLSearchParams(location.search).has('silent-audio');
   },
 
   /* 声の品質を推定する。iOS/macOS は名前に (Enhanced)/(Premium) が付く */
@@ -303,7 +312,11 @@ const Speech = {
 
     this._pick = pick;
 
+    /* iOS は最初のタップより前に一度 speak() しておかないと読み上げが動かない。
+       click まで待つと、その click で鳴らしたい音（タイルの単語）に間に合わないので
+       pointerdown で先に解錠する */
     const unlock = () => {
+      if (speechSynthesis.paused) { try { speechSynthesis.resume(); } catch (e) {} }
       if (this.ready) return;
       try {
         const u = new SpeechSynthesisUtterance(' ');
@@ -312,17 +325,16 @@ const Speech = {
         this.ready = true;
       } catch (e) {}
     };
-    document.addEventListener('touchend', unlock);
-    document.addEventListener('click', unlock);
+    document.addEventListener('pointerdown', unlock, true);
+    document.addEventListener('touchstart', unlock, true);
+    document.addEventListener('click', unlock, true);
   },
 
   /* rate は「この場面での相対的な速さ」。設定した基準速度に掛ける */
   say(text, rate = 0.9, onend) {
     const state = (value, error = '') => document.dispatchEvent(new CustomEvent('speech-state', { detail: { state: value, error } }));
     this.stopPlayback();
-    /* ローカルの表示検証専用。公開環境では有効にならない。 */
-    if (typeof location !== 'undefined' && /^(127\.0\.0\.1|localhost)$/.test(location.hostname)
-        && new URLSearchParams(location.search).has('silent-audio')) {
+    if (this.silent()) {
       state('ready');
       if (onend) queueMicrotask(onend);
       return;
@@ -399,6 +411,57 @@ const Speech = {
     } catch (e) { this._utterance = null; state('error', '音声を再生できませんでした'); if (typeof Beat !== 'undefined') Beat.duck(false); if (onend) onend(); }
   },
 
+  /* 単語を1語だけ鳴らす。文の読み上げとは経路を分けてある。
+
+     分けた理由: iOS Safari は speechSynthesis.cancel() の直後に呼んだ speak() を
+     飲み込むことがあり、タイルを続けて押すと2つ目以降が無音になる。
+     単語は1秒に満たないので、ここでは cancel を挟まない。
+     事前生成のMP3があればそちらを優先する（端末の音声設定に左右されず必ず鳴る）。 */
+  sayWord(word) {
+    const text = String(word || '').trim();
+    if (!text || this.silent()) return;
+
+    const src = typeof AUDIO_MANIFEST !== 'undefined' && AUDIO_MANIFEST[text];
+    if (src) {
+      try {
+        /* 文の読み上げが鳴っている最中なら止める。speechSynthesis には触らない */
+        if (this._audio) { this._audio.pause(); this._audio = null; if (typeof Beat !== 'undefined') Beat.duck(false); }
+        const a = this._wordAudio || (this._wordAudio = new Audio());
+        a.pause();
+        /* 同じ語を連打したときは読み直さず、頭出しだけする */
+        if (!a.src || !a.src.endsWith(src)) a.src = src;
+        a.currentTime = 0;
+        a.play().catch(() => this.sayWordFallback(text));
+        return;
+      } catch (e) { /* 下の端末音声へ落とす */ }
+    }
+    this.sayWordFallback(text);
+  },
+
+  /* MP3がまだ無い語だけ、端末の読み上げへ落とす */
+  sayWordFallback(text) {
+    if (!('speechSynthesis' in window)) { this.warnNoVoice(); return; }
+    try {
+      /* 長い文が鳴っている最中だけ止める。単語どうしでは止めない（上のコメント参照） */
+      if (this._utterance) { speechSynthesis.cancel(); this._utterance = null; }
+      /* iOS は裏に回ると speechSynthesis が止まったままになることがある */
+      if (speechSynthesis.paused) speechSynthesis.resume();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = (this.voice && this.voice.lang) || 'en-US';
+      u.rate = Math.max(0.5, Math.min(1.4, 0.95 * this.rate));
+      if (this.voice) u.voice = this.voice;
+      u.onerror = e => { if (e.error !== 'canceled' && e.error !== 'interrupted') this.warnNoVoice(); };
+      speechSynthesis.speak(u);
+    } catch (e) { this.warnNoVoice(); }
+  },
+
+  /* 無音のまま黙って失敗すると「押しても反応しない」に見える。一度だけ知らせる */
+  warnNoVoice() {
+    if (this._warned) return;
+    this._warned = true;
+    toast('この端末の読み上げが使えないため、単語の音が出せませんでした');
+  },
+
   /* 複数の文を続けて読む */
   chain(list, rate, done) {
     const chainId = ++this._chainId;
@@ -417,6 +480,7 @@ const Speech = {
   },
 
   stopPlayback() {
+    if (this._wordAudio) { try { this._wordAudio.pause(); } catch (e) {} }
     if (this._audio) {
       try {
         this._audio.onplaying = null;
@@ -457,6 +521,21 @@ const Speech = {
     this.save();
   },
 };
+
+/* 画面の下に短く出す通知。無音のまま失敗したことを伝えるために使う */
+let _toastTimer = 0;
+function toast(message) {
+  let el = $('#toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.add('on');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('on'), 3200);
+}
 
 /* 音声ボタンの共通処理（押した瞬間に光らせる） */
 function sayFrom(btn, text, rate) {

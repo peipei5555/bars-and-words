@@ -16,7 +16,10 @@ const WB_PREFIX   = 'wb';   // Store.d.quiz に入れるときの接頭辞
 const WB_N        = 8;      // 1セッションの問題数
 const WB_MASTER   = 3;      // 連続正解がこれ以上で「覚えた単語」
 const WB_MIN_WORDS = 4;     // 短すぎる文は組み立てにならない
-const WB_MAX_WORDS = 10;    // 長すぎるとスマホでタイルが溢れる
+/* 8語を超えるとタイルが12枚以上になり、探すだけで手が止まる。
+   実測: 上限10だと出題文の30%が8語以上で、読み物からの説明文ばかり並んでいた。
+   7語に下げると会話文が中心になり、日本語を見た瞬間に英語が浮かぶ文だけが残る */
+const WB_MAX_WORDS = 7;
 /* 冠詞は記録も出題の重みも続けるが、一覧には出さない。
    「覚えた単語: a」では何を覚えたのか分からないため */
 const WB_HIDE = ['a', 'an', 'the'];
@@ -30,6 +33,14 @@ function wbTokens(en) {
    "Sorry," → sorry ／ "I'm" → i'm ／ "—" → 空文字（記録しない） */
 function wbKey(token) {
   return String(token || '').toLowerCase().replace(/^[^a-z0-9']+|[^a-z0-9']+$/g, '');
+}
+
+/* 読み上げに渡す形。前後の記号を落とし、語中の ' と - は残す。
+   "matters." → "matters" ／ "I'm" → "I'm" ／ "'really" → "really"
+   事前生成のMP3もこの形で作ってあるので、両者は必ず一致させること
+   （tools/generate-openai-audio.mjs がこの関数をそのまま呼んでいる） */
+function wbSpeakWord(token) {
+  return String(token || '').replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '');
 }
 
 /* -----------------------------------------------------------
@@ -112,10 +123,23 @@ function wbPool() {
   return out;
 }
 
+/* 出典ごとの出しやすさ。会話文は日本語を見た瞬間に英語が浮かぶが、
+   読み物からの説明文（今日の英語）は硬くて手が止まるので後ろへ回す */
+const WB_SOURCE_WEIGHT = {
+  '日常会話':   0.35,
+  '会話ドリル': 0.35,
+  '音楽を語る': 0.25,
+  'スラング':   0.20,
+  '今日の英語': -0.9,   /* 読み物からの説明文。硬くて手が止まるので最後に回す */
+};
+
 /* 苦手を優先する重み。触っていない文と、苦手な語を含む文を上へ持ち上げる */
 function wbScore(item) {
   const rec = Store.d.quiz[WB_PREFIX + ':' + item.en];
   let score = rec ? 1 + rec.ng * 2 - Math.min(rec.ok, 4) * 0.4 : 2.5;
+  score += WB_SOURCE_WEIGHT[item.source] || 0;
+  /* 短い文をやや前に出す。強くしすぎると4語の文ばかりになって飽きる */
+  score += (WB_MAX_WORDS - item.target.length) * 0.08;
   for (const t of item.target) {
     const w = WordMemory.get(t);
     if (WordMemory.weak(w)) score += 0.6;
@@ -132,10 +156,23 @@ function wbPick(pool, n = WB_N, mode = 'all') {
     if (only.length >= 3) list = only;
   }
   const take = Math.min(n, list.length);
-  const sorted = list.slice().sort((a, b) => wbScore(b) - wbScore(a));
-  /* 上位2n件から抽選する。毎回同じ並びにならないよう幅を持たせる */
-  const head = sorted.slice(0, Math.max(take, Math.min(list.length, n * 2)));
-  return sample(head, take);
+
+  /* スコアをそのまま重みにして抽選する。
+     「上位2n件から等確率で選ぶ」方式だと、まだ何も解いていないうちは全員が同点で
+     並び順が固定され、毎回まったく同じ顔ぶれになっていた（実測: 40回で24文しか出ない）。
+     重み付き抽選なら、苦手な文が出やすいまま、全体から散らして選べる */
+  const rest = list.slice();
+  const weights = rest.map(x => Math.max(0.05, wbScore(x)));
+  const out = [];
+  while (out.length < take && rest.length) {
+    let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+    let i = 0;
+    while (i < rest.length - 1 && (r -= weights[i]) > 0) i++;
+    out.push(rest[i]);
+    rest.splice(i, 1);
+    weights.splice(i, 1);
+  }
+  return out;
 }
 
 /* おとりの単語。正解に無い語だけを、記号の付かない素の形で選ぶ
@@ -158,9 +195,11 @@ function wbDistractors(item, pool, n) {
   return [...sample(weak, Math.min(1, weak.length)), ...sample(rest, n)].slice(0, n);
 }
 
-/* 1問ぶんのタイルを作る */
+/* 1問ぶんのタイルを作る。
+   おとりが多いほど「探す時間」が増えるだけで、英語の練習にはならない。
+   4〜5語なら1つ、6語以上でも2つに留める */
 function wbQuestion(item, pool) {
-  const extra = item.target.length <= 5 ? 2 : 3;
+  const extra = item.target.length <= 5 ? 1 : 2;
   const tiles = [
     ...item.target.map(w => ({ w, extra: false })),
     ...wbDistractors(item, pool, extra).map(w => ({ w, extra: true })),
@@ -214,9 +253,7 @@ const WordBuild = {
       : '<p class="wb-empty">まだありません。</p>';
 
     el.innerHTML = `
-      <p class="lead">日本語の文を見て、<b>英単語のタイルを押して並べます</b>。
-        <b>押した単語はその場で発音します。</b>
-        外した語は「苦手な単語」に、続けて正解できた語は「覚えた単語」に貯まります。</p>
+      <p class="lead">日本語を見て、<b>英単語のタイルを並べます</b>。押すとその場で発音します。</p>
 
       <div class="wb-counts">
         <div><b>${mastered.length}</b><span>覚えた単語</span></div>
@@ -237,7 +274,7 @@ const WordBuild = {
 
       <div class="wb-list-card">
         <h2>苦手な単語</h2>
-        <p class="wb-note">押すと発音します。${WB_MASTER}回続けて正解すると「覚えた」へ移ります。</p>
+        <p class="wb-note">${WB_MASTER}回続けて正解すると「覚えた」へ移ります。</p>
         ${chips(weak.slice(0, 30), 'weak')}
       </div>
 
@@ -254,7 +291,7 @@ const WordBuild = {
 
   bindChips(root) {
     $$('.wb-chip', root).forEach(b => {
-      b.onclick = () => sayFrom(b, b.dataset.word, 0.85);
+      b.onclick = () => { b.classList.add('playing'); setTimeout(() => b.classList.remove('playing'), 900); Speech.sayWord(b.dataset.word); };
     });
   },
 
@@ -281,13 +318,17 @@ const WordBuild = {
     $('#wb-now').textContent = this.i + 1;
     $('#wb-bar-fill').style.width = (this.i / this.list.length * 100) + '%';
 
+    /* 答えは「タイルのすぐ下」に決め打ちで出す。
+       以前は答え合わせのあとに末尾へ足していたので、答えが画面の下へ流れて
+       スクロールしないと読めなかった（テンポが切れる最大の原因だった） */
     $('#wb-body').innerHTML = `
       <div class="wb-stage">
         <div class="wb-cat">🧩 ${esc(it.source)}</div>
         <div class="wb-ja">${esc(it.ja)}</div>
         <div class="wb-line" id="wb-line"></div>
         <div class="wb-bank" id="wb-bank"></div>
-        <div class="wb-tip">単語を押すと発音します。並べ終えたら「答え合わせ」。</div>
+        <div class="wb-result" id="wb-result" hidden></div>
+        <div class="wb-tip" id="wb-tip">タイルを押すと発音します。</div>
         <button class="q-next" id="wb-check" disabled>答え合わせ</button>
       </div>`;
 
@@ -324,11 +365,12 @@ const WordBuild = {
     if (check) check.disabled = it.placed.length !== it.target.length;
   },
 
-  /* 押した単語はその場で読み上げる（これが「効果音」） */
+  /* 押した単語はその場で読み上げる（これが「効果音」）。
+     文の読み上げ（Speech.say）とは別経路。連打しても詰まらない */
   speak(id) {
     const it = this.cur();
     const t = it.tiles.find(x => x.id === id);
-    if (t) Speech.say(t.w, 0.85);
+    if (t) Speech.sayWord(wbSpeakWord(t.w));
   },
 
   put(id) {
@@ -380,29 +422,49 @@ const WordBuild = {
     });
     $$('#wb-bank .wb-tile').forEach(b => { b.classList.add('dim'); });
 
-    const stage = $('#wb-body .wb-stage');
-    const note = document.createElement('div');
-    note.className = 'q-note';
-    note.innerHTML = `${ok ? '<b>正解</b>' : '<b>おしい</b>'}<br>
-      <span class="wb-answer">${esc(it.en)}</span><br>${esc(it.ja)}`;
-    stage.appendChild(note);
+    /* 答えはタイルの真下に出す。ボタンは増やさず「答え合わせ」を「次へ」に変えるだけ。
+       ボタンの位置が動かないので、指を置いたまま次の問題へ進める */
+    const res = $('#wb-result');
+    res.hidden = false;
+    res.className = 'wb-result ' + (ok ? 'ok' : 'ng');
+    res.innerHTML = `
+      <div class="wb-result-head">${ok ? '正解' : 'おしい'}</div>
+      <div class="wb-answer">${esc(it.en)}</div>
+      <div class="wb-answer-ja">${esc(it.ja)}</div>`;
 
-    const say = document.createElement('button');
-    say.className = 'q-say';
-    say.innerHTML = '🔊 <span>この文をもう一度聞く</span>';
-    say.onclick = () => sayFrom(say, it.en, 0.85);
-    stage.appendChild(say);
+    const tip = $('#wb-tip');
+    if (tip) tip.remove();
 
-    const next = document.createElement('button');
-    next.className = 'q-next';
-    next.textContent = this.i + 1 >= this.list.length ? '結果を見る' : '次へ';
-    next.onclick = () => { this.i++; this.show(); };
-    stage.appendChild(next);
+    const last = this.i + 1 >= this.list.length;
+    const next = $('#wb-check');
+    next.textContent = last ? '結果を見る' : '次へ';
+    next.disabled = false;
 
-    $('#wb-check').remove();
-    /* 正しい文を読み上げて、耳でも確認できるようにする */
-    Speech.say(it.en, 0.85);
-    next.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    let moved = false;
+    const go = () => {
+      if (moved) return;
+      moved = true;
+      this.i++;
+      this.show();
+    };
+    next.onclick = go;
+
+    if (ok) {
+      /* 正解なら止まる理由がない。読み終わったら自分で進む。
+         ただし答えが一瞬で消えないよう、最低1.1秒は出したままにする。
+         読み上げが返ってこない端末もあるので、2.6秒で必ず進む保険も張る */
+      const shownAt = Date.now();
+      Speech.say(it.en, 0.85, () => setTimeout(go, Math.max(300, 1100 - (Date.now() - shownAt))));
+      setTimeout(go, 2600);
+    } else {
+      /* 間違えたときだけ止まる。正しい文をもう一度聞けるようにする */
+      const say = document.createElement('button');
+      say.className = 'q-say wb-again-say';
+      say.innerHTML = '🔊 <span>もう一度聞く</span>';
+      say.onclick = () => sayFrom(say, it.en, 0.85);
+      res.appendChild(say);
+      Speech.say(it.en, 0.85);
+    }
   },
 
   finish() {

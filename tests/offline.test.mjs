@@ -9,7 +9,9 @@ test('Service Workerの静的キャッシュ参照が存在する', () => {
   const context = { self:{ addEventListener:()=>{}, AUDIO_FILES:[] }, importScripts:()=>{} };
   vm.createContext(context);
   vm.runInContext(read('sw.js') + '\nglobalThis.ASSETS_OUT=ASSETS;globalThis.CACHE_OUT=CACHE;', context);
-  assert.equal(context.CACHE_OUT, 'tomoya-house-v19');
+  /* 版数は公開のたびに deploy-app.js が上げる。名前の形だけ見張る
+     （固定値にすると、公開するたびにこのテストが落ちる） */
+  assert.match(context.CACHE_OUT, /^tomoya-house-v[0-9]+$/);
   assert.ok(context.ASSETS_OUT.includes('./data/immersion.js'));
   assert.ok(context.ASSETS_OUT.includes('./wordbuild.js'));
   assert.ok(context.ASSETS_OUT.includes('./realtime.js'));

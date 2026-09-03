@@ -17,10 +17,25 @@ const INSTRUCTIONS = [
   'Do not add, remove, or explain any words.',
 ].join(' ');
 
+/* 「単語で組み立て」のタイル用。1語だけを鳴らすので指示を分ける。
+   端末の読み上げに任せるとiPhoneで無音になり、タイルを押しても音が出なかった。
+   ここで全語ぶん作って同梱すれば、端末の音声設定に関係なく必ず鳴る */
+const WORD_SPEED = 0.95;
+const WORD_INSTRUCTIONS = [
+  'Say only this single English word in clear, natural American English.',
+  'Use a neutral dictionary-style delivery with crisp consonants.',
+  'Do not add any other words, and do not spell it out.',
+].join(' ');
+
+const RECIPE = {
+  sentence: { speed: SPEED, instructions: INSTRUCTIONS },
+  word:     { speed: WORD_SPEED, instructions: WORD_INSTRUCTIONS },
+};
+
 function loadData() {
   const context = {};
   vm.createContext(context);
-  for (const name of ['data/commute.js', 'data/topics.js', 'data/grammar.js', 'data/parse.js', 'data/immersion.js']) {
+  for (const name of ['data/commute.js', 'data/topics.js', 'data/grammar.js', 'data/parse.js', 'data/immersion.js', 'data/slang.js', 'data/phrases.js']) {
     let src = fs.readFileSync(path.join(ROOT, name), 'utf8');
     src += '\n;globalThis.__SHADOW = typeof SHADOW === "undefined" ? globalThis.__SHADOW : SHADOW;';
     src += '\n;globalThis.__DRILLS = typeof DRILLS === "undefined" ? globalThis.__DRILLS : DRILLS;';
@@ -30,12 +45,19 @@ function loadData() {
     src += '\n;globalThis.__IMMERSION = typeof IMMERSION_LESSONS === "undefined" ? globalThis.__IMMERSION : IMMERSION_LESSONS;';
     vm.runInContext(src, context, { filename: name });
   }
+  /* 「単語で組み立て」の出題は wordbuild.js が組み立てる。
+     同じ規則をここへ書き写すと必ずずれるので、本体をそのまま実行して借りる */
+  context.document = { addEventListener() {} };
+  vm.runInContext(
+    fs.readFileSync(path.join(ROOT, 'wordbuild.js'), 'utf8')
+      + ';globalThis.__wbPool = wbPool; globalThis.__wbSpeakWord = wbSpeakWord;',
+    context, { filename: 'wordbuild.js' });
   return context;
 }
 
-function add(registry, text, voice = 'cedar') {
+function add(registry, text, voice = 'cedar', kind = 'sentence') {
   const clean = typeof text === 'string' ? text.trim() : '';
-  if (clean && !registry.has(clean)) registry.set(clean, voice);
+  if (clean && !registry.has(clean)) registry.set(clean, { voice, kind });
 }
 
 function collectItems(context) {
@@ -61,22 +83,29 @@ function collectItems(context) {
     for (const sentence of lesson.sentences || []) add(items, sentence.en, 'marin');
     for (const output of lesson.production || []) add(items, output.answer, 'cedar');
   }
+  /* 単語で組み立て: 出題文そのものと、タイルになる語をすべて */
+  for (const item of context.__wbPool ? context.__wbPool() : []) {
+    add(items, item.en, 'cedar');
+    for (const token of item.target) add(items, context.__wbSpeakWord(token), 'cedar', 'word');
+  }
   return items;
 }
 
-function fileFor(text, voice) {
-  const identity = JSON.stringify({ provider: 'openai', model: MODEL, voice, speed: SPEED, instructions: INSTRUCTIONS, text });
+function fileFor(text, voice, kind = 'sentence') {
+  const { speed, instructions } = RECIPE[kind] || RECIPE.sentence;
+  const identity = JSON.stringify({ provider: 'openai', model: MODEL, voice, speed, instructions, text });
   return `${crypto.createHash('sha256').update(identity).digest('hex').slice(0, 20)}.mp3`;
 }
 
 export function listOpenAIAudioTargets() {
-  return [...collectItems(loadData()).entries()].map(([text, voice]) => {
-    const file = fileFor(text, voice);
-    return { text, voice, file, exists: fs.existsSync(path.join(OUT_DIR, file)) };
+  return [...collectItems(loadData()).entries()].map(([text, { voice, kind }]) => {
+    const file = fileFor(text, voice, kind);
+    return { text, voice, kind, file, exists: fs.existsSync(path.join(OUT_DIR, file)) };
   });
 }
 
-async function synthesize(apiKey, text, voice) {
+async function synthesize(apiKey, text, voice, kind = 'sentence') {
+  const { speed, instructions } = RECIPE[kind] || RECIPE.sentence;
   const response = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: {
@@ -87,9 +116,9 @@ async function synthesize(apiKey, text, voice) {
       model: MODEL,
       voice,
       input: text,
-      instructions: INSTRUCTIONS,
+      instructions,
       response_format: 'mp3',
-      speed: SPEED,
+      speed,
     }),
   });
   if (!response.ok) {
@@ -102,8 +131,9 @@ async function synthesize(apiKey, text, voice) {
 export async function generateOpenAIAudio({ apiKey, concurrency = 2, onProgress } = {}) {
   apiKey ||= typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : '';
   if (!apiKey) throw new Error('OPENAI_API_KEY が設定されていません。');
-  const entries = listOpenAIAudioTargets().map(x => [x.text, x.voice]);
-  if (entries.length > 400) throw new Error(`安全上限を超えました: ${entries.length}件`);
+  const entries = listOpenAIAudioTargets().map(x => [x.text, x.voice, x.kind]);
+  /* 課金が伴うので上限を置く。単語ぶん（約350語）を足しても収まる数 */
+  if (entries.length > 900) throw new Error(`安全上限を超えました: ${entries.length}件`);
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const manifest = {};
@@ -114,11 +144,11 @@ export async function generateOpenAIAudio({ apiKey, concurrency = 2, onProgress 
   async function worker() {
     while (cursor < entries.length) {
       const index = cursor++;
-      const [text, voice] = entries[index];
-      const file = fileFor(text, voice);
+      const [text, voice, kind] = entries[index];
+      const file = fileFor(text, voice, kind);
       const target = path.join(OUT_DIR, file);
       if (!fs.existsSync(target)) {
-        const audio = await synthesize(apiKey, text, voice);
+        const audio = await synthesize(apiKey, text, voice, kind);
         const id3 = audio.subarray(0, 3).toString('ascii') === 'ID3';
         const mpegFrame = audio[0] === 0xff && (audio[1] & 0xe0) === 0xe0;
         if (audio.length < 512 || (!id3 && !mpegFrame)) {
@@ -152,6 +182,8 @@ if (invokedDirectly) {
   if (process.argv.includes('--list')) {
     const targets = listOpenAIAudioTargets();
     const missing = targets.filter(x => !x.exists);
+    const words = targets.filter(x => x.kind === 'word');
+    console.log(`内訳: 文 ${targets.length - words.length}件 / 単語 ${words.length}件（未生成の単語 ${missing.filter(x => x.kind === 'word').length}件）`);
     process.stdout.write(`対象 ${targets.length}件 / 生成済み ${targets.length - missing.length}件 / 未生成 ${missing.length}件\n`);
     for (const item of missing) process.stdout.write(`[${item.voice}] ${item.text}\n`);
   } else {

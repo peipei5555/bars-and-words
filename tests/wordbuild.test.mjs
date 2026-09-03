@@ -5,7 +5,7 @@ import { read } from './helpers.mjs';
 
 /* app.js とデータ、wordbuild.js を同じコンテキストで動かす。
    画面は触らないので document は最小限のダミーで足りる。 */
-function load(saved = {}) {
+function load(saved = {}, onContext) {
   const memory = new Map([['bars-and-words-v1', JSON.stringify({
     xp: 0, quiz: {}, readEras: [], clearedEras: [], grammarRead: [], parseRead: [],
     answered: 0, correct: 0, streak: 0, lastDay: '', days: [], ...saved,
@@ -18,15 +18,36 @@ function load(saved = {}) {
   };
   vm.createContext(context);
   for (const file of ['data/history.js', 'data/phrases.js', 'data/slang.js', 'data/commute.js',
-                      'data/immersion.js', 'app.js', 'wordbuild.js']) {
-    vm.runInContext(read(file), context, { filename: file });
+                      'data/immersion.js', 'audio/manifest.js', 'app.js', 'wordbuild.js']) {
+    const tail = file === 'audio/manifest.js' ? ';globalThis.AUDIO_OUT = AUDIO_MANIFEST;' : '';
+    vm.runInContext(read(file) + tail, context, { filename: file });
   }
   vm.runInContext(`globalThis.OUT = {
-    Store, WordMemory, WordBuild, wbTokens, wbKey, wbPool, wbPick, wbScore, wbGrade,
+    Store, WordMemory, WordBuild, Speech, wbTokens, wbKey, wbSpeakWord, wbPool, wbPick, wbScore, wbGrade,
     wbWordResults, wbDistractors, wbQuestion, WB_MASTER, WB_N,
   };`, context, { filename: 'export.js' });
   context.OUT.Store.load();
+  if (onContext) onContext(context);
   return context.OUT;
+}
+
+/* 音を鳴らさずに読み上げ経路だけを調べる。
+   MP3側は再生の代わりに src を控え、端末音声側は渡された文字列を控える */
+function withSpokenSpy(OUT, context) {
+  const played = [];
+  const spoken = [];
+  const warned = [];
+  OUT.Speech.silent = () => false;
+  OUT.Speech._wordAudio = {
+    _src: '', pause() {}, currentTime: 0,
+    set src(v) { this._src = v; }, get src() { return this._src; },
+    play() { played.push(this._src); return { catch() {} }; },
+  };
+  OUT.Speech.warnNoVoice = () => warned.push(true);
+  context.window.speechSynthesis = { speak: u => spoken.push(u.text), cancel() {}, paused: false };
+  context.speechSynthesis = context.window.speechSynthesis;
+  context.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+  return { played, spoken, warned };
 }
 
 /* vm の中で作られた配列・オブジェクトは prototype が別なので、
@@ -196,11 +217,47 @@ test('1問ぶんのタイルは正解＋おとりで、置き場は空から始�
   const item = pool.find(x => x.target.length === 4) || pool[0];
   const q = wbQuestion(item, pool);
   assert.deepEqual(plain(q.placed), []);
-  assert.equal(q.tiles.length, item.target.length + (item.target.length <= 5 ? 2 : 3));
+  assert.equal(q.tiles.length, item.target.length + (item.target.length <= 5 ? 1 : 2));
   assert.deepEqual(plain(q.tiles.map(t => t.id)), plain(q.tiles).map((_, i) => i));
   /* 正解の語がすべてタイルに揃っている（同じ語の重複も数えて一致させる） */
   const bank = q.tiles.filter(t => !t.extra).map(t => t.w).sort();
   assert.deepEqual(plain(bank), plain(item.target.slice().sort()));
+});
+
+/* iPhoneでタイルを押しても音が出なかった。
+   端末の読み上げに任せず、MP3があるならそれを鳴らすこと */
+test('タイルの発音はMP3を優先し、MP3が無い語だけ端末の読み上げへ落ちる', () => {
+  let context;
+  const OUT = load({}, c => { context = c; });
+  const spy = withSpokenSpy(OUT, context);
+
+  /* audio/manifest.js に載っている文はMP3で鳴る（端末の読み上げは呼ばない） */
+  const known = Object.keys(context.AUDIO_OUT)[0];
+  OUT.Speech.sayWord(known);
+  assert.equal(spy.played.length, 1);
+  assert.ok(spy.played[0].startsWith('audio/openai/') && spy.played[0].endsWith('.mp3'), spy.played[0]);
+  assert.deepEqual(spy.spoken, []);
+
+  /* まだMP3が無い語は端末の読み上げへ。無音のまま黙って終わらない */
+  OUT.Speech.sayWord('zzzznotarealword');
+  assert.equal(spy.played.length, 1);
+  assert.deepEqual(spy.spoken, ['zzzznotarealword']);
+  assert.deepEqual(spy.warned, []);
+});
+
+/* 連打しても2つ目以降が消えないこと（cancel の直後の speak を iOS が飲み込む） */
+test('タイルを続けて押しても読み上げを打ち切らない', () => {
+  let context;
+  const OUT = load({}, c => { context = c; });
+  const spy = withSpokenSpy(OUT, context);
+  let cancelled = 0;
+  context.window.speechSynthesis.cancel = () => cancelled++;
+
+  OUT.Speech.sayWord('aaaanotaword');
+  OUT.Speech.sayWord('bbbbnotaword');
+  OUT.Speech.sayWord('ccccnotaword');
+  assert.deepEqual(spy.spoken, ['aaaanotaword', 'bbbbnotaword', 'ccccnotaword']);
+  assert.equal(cancelled, 0, '単語どうしでは cancel() を呼ばない');
 });
 
 test('保存は既存の記録を壊さず、書き出し・読み込みで単語も往復する', () => {

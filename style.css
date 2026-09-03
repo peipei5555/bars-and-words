@@ -2164,6 +2164,34 @@ body::before {
 .wb-stage .q-next[disabled] { opacity: .4; cursor: default; }
 .wb-answer { font-size: 16px; font-weight: 700; color: var(--text); }
 
+/* 答えはタイルのすぐ下。目線を動かさずに読めるところに固定する */
+.wb-result {
+  margin-top: 18px; padding: 14px 16px 15px;
+  border-radius: var(--r); border: 1px solid var(--line); background: var(--card-2);
+  border-left-width: 4px;
+  animation: wb-result-in .18s ease-out;
+}
+.wb-result.ok { border-left-color: var(--ok); }
+.wb-result.ng { border-left-color: var(--ng); }
+.wb-result-head { font-size: 13px; font-weight: 800; letter-spacing: .04em; margin-bottom: 8px; }
+.wb-result.ok .wb-result-head { color: var(--ok); }
+.wb-result.ng .wb-result-head { color: var(--ng); }
+.wb-result .wb-answer { display: block; font-size: 18px; line-height: 1.5; }
+.wb-answer-ja { display: block; margin-top: 5px; font-size: 13px; line-height: 1.6; color: var(--text-3); }
+.wb-again-say { margin-top: 12px; }
+@keyframes wb-result-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+/* 無音のまま失敗したことを伝える通知 */
+#toast {
+  position: fixed; left: 50%; bottom: 88px; transform: translate(-50%, 12px);
+  max-width: min(400px, calc(100vw - 32px)); z-index: 60;
+  padding: 11px 16px; border-radius: 14px;
+  background: rgba(12,32,44,.94); color: #fff;
+  font-size: 12.5px; line-height: 1.5; text-align: center;
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+}
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+
 /* ---- 結果 ---- */
 .wb-done { flex: 1; text-align: center; }
 .wb-done .result-score { font-size: 62px; }

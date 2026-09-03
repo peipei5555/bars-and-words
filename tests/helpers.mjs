@@ -5,6 +5,19 @@ import vm from 'node:vm';
 export const ROOT = path.resolve(import.meta.dirname, '..');
 export const read = name => fs.readFileSync(path.join(ROOT, name), 'utf8');
 
+/* 出題プールの規則は wordbuild.js が持っている。
+   テスト側に書き写すとずれるので、本体をそのまま動かして借りる */
+export function loadWordBuild() {
+  const context = { document: { addEventListener() {} } };
+  vm.createContext(context);
+  for (const file of ['data/commute.js', 'data/immersion.js', 'data/slang.js', 'data/phrases.js']) {
+    vm.runInContext(read(file), context, { filename: file });
+  }
+  vm.runInContext(read('wordbuild.js') + ';globalThis.WB_OUT = { wbPool, wbSpeakWord, WB_MIN_WORDS, WB_MAX_WORDS };',
+    context, { filename: 'wordbuild.js' });
+  return context.WB_OUT;
+}
+
 export function loadData() {
   const context = {};
   vm.createContext(context);

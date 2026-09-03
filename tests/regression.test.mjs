@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { read } from './helpers.mjs';
+import { read, loadWordBuild } from './helpers.mjs';
 import { listOpenAIAudioTargets } from '../tools/generate-openai-audio.mjs';
 
 test('学習項目は音声やタイマーだけでは自動遷移しない', () => {
@@ -36,6 +36,23 @@ test('音声生成はparse別表現の英文とImmersionを収集する', () => 
   assert.ok(src.includes("add(items, alternate.en, 'cedar')"));
   assert.ok(src.includes('context.__IMMERSION'));
   const targets = listOpenAIAudioTargets();
-  assert.equal(targets.length, 244);
-  assert.equal(targets.filter(x => !x.exists).length, 12);
+  assert.equal(targets.length, 666);
+  assert.equal(targets.filter(x => !x.exists).length, 434);
+});
+
+/* タイルの発音は端末の読み上げに任せるとiPhoneで無音になった。
+   出題に出る語はすべてMP3の生成対象に入っていること */
+test('音声生成は単語で組み立てのタイル語をすべて拾う', () => {
+  const targets = listOpenAIAudioTargets();
+  const words = new Set(targets.filter(x => x.kind === 'word').map(x => x.text));
+  assert.ok(words.size > 300, `単語が少なすぎる: ${words.size}`);
+  /* 前後の記号は落ちている。語中のハイフンとアポストロフィ（double-check, I'm）は残す */
+  for (const w of words) assert.ok(!/^[^A-Za-z0-9]|[^A-Za-z0-9]$/.test(w), w);
+  const { wbPool, wbSpeakWord } = loadWordBuild();
+  for (const item of wbPool()) {
+    for (const token of item.target) {
+      const spoken = wbSpeakWord(token);
+      if (spoken) assert.ok(words.has(spoken) || targets.some(x => x.text === spoken), `未収録: ${token}`);
+    }
+  }
 });
