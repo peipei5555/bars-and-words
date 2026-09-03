@@ -207,6 +207,29 @@ function wbQuestion(item, pool) {
   return { ...item, tiles: shuffle(tiles).map((t, id) => ({ ...t, id })), placed: [] };
 }
 
+/* 既存教材にある解説を再利用する。無ければ空文字を返し、解説の枠ごと出さない。
+
+   以前はここで「英語は『i → like → this → song』の順で意味を組み立てます」という
+   定型文を返していた。実解説を持つのは出題122件のうち47件だけなので、
+   残り61%はこの中身の無い文が毎回出ていた（しかも wbKey を通すので I まで小文字になる）。
+   説明が無いことより、説明のふりをした文が出ることのほうが分かりにくい。
+
+   解説を持つのは IMMERSION_LESSONS の point と SLANG の note だけ。
+   DRILLS を見に行く分岐もあったが、DRILLS に note というフィールドは存在しないので外した。 */
+function wbExplanation(item) {
+  if (typeof IMMERSION_LESSONS !== 'undefined') {
+    for (const lesson of IMMERSION_LESSONS) {
+      const s = (lesson.sentences || []).find(x => x.en === item.en);
+      if (s) return s.point || '';
+    }
+  }
+  if (typeof SLANG !== 'undefined') {
+    const s = SLANG.find(x => x.ex === item.en);
+    if (s && s.note) return s.note;
+  }
+  return '';
+}
+
 /* 採点。位置ごとに合っているかを見る */
 function wbGrade(target, placed) {
   const marks = placed.map((w, i) => w === target[i]);
@@ -424,13 +447,15 @@ const WordBuild = {
 
     /* 答えはタイルの真下に出す。ボタンは増やさず「答え合わせ」を「次へ」に変えるだけ。
        ボタンの位置が動かないので、指を置いたまま次の問題へ進める */
+    const explain = wbExplanation(it);
     const res = $('#wb-result');
     res.hidden = false;
     res.className = 'wb-result ' + (ok ? 'ok' : 'ng');
     res.innerHTML = `
       <div class="wb-result-head">${ok ? '正解' : 'おしい'}</div>
       <div class="wb-answer">${esc(it.en)}</div>
-      <div class="wb-answer-ja">${esc(it.ja)}</div>`;
+      <div class="wb-answer-ja">${esc(it.ja)}</div>
+      ${explain ? `<div class="wb-explain"><b>ここがポイント</b><br>${esc(explain)}</div>` : ''}`;
 
     const tip = $('#wb-tip');
     if (tip) tip.remove();
@@ -449,15 +474,15 @@ const WordBuild = {
     };
     next.onclick = go;
 
-    if (ok) {
-      /* 正解なら止まる理由がない。読み終わったら自分で進む。
+    if (ok && !explain) {
+      /* 正解で、しかも読むものが無いなら止まる理由がない。読み終わったら自分で進む。
          ただし答えが一瞬で消えないよう、最低1.1秒は出したままにする。
          読み上げが返ってこない端末もあるので、2.6秒で必ず進む保険も張る */
       const shownAt = Date.now();
       Speech.say(it.en, 0.85, () => setTimeout(go, Math.max(300, 1100 - (Date.now() - shownAt))));
       setTimeout(go, 2600);
     } else {
-      /* 間違えたときだけ止まる。正しい文をもう一度聞けるようにする */
+      /* 間違えたときと、解説があるときは止まる。正しい文をもう一度聞けるようにする */
       const say = document.createElement('button');
       say.className = 'q-say wb-again-say';
       say.innerHTML = '🔊 <span>もう一度聞く</span>';
