@@ -95,6 +95,7 @@ main { max-width: 600px; margin: 0 auto; padding: 8px 20px calc(48px + var(--saf
   width: 100%; padding: 14px 16px; min-height: 56px;
 }
 .row + .row { box-shadow: inset 0 1px 0 var(--hair); }
+.list > .hwrap + .hwrap > .row, .list > .hwrap + .row, .list > .row + .hwrap > .row { box-shadow: inset 0 1px 0 var(--hair); }
 .row:active { background: var(--surface-2); }
 .row[disabled] { opacity: .35; pointer-events: none; }
 .row .t { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
@@ -239,9 +240,12 @@ label.row { cursor: pointer; }
 @media (max-width: 640px) { .update-bar { margin: 0 16px 4px; } }
 
 /* iPhoneの手応え用：ボタンの上に重ねる透明なスイッチ（app.js の hapWrap） */
-.hwrap { position: relative; display: grid; }
+.hwrap { position: relative; display: grid; max-width: 100%; }
 .hap { position: absolute; inset: 0; z-index: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 /* スイッチ本体もボタン全面に広げ、指が直接スイッチに当たるようにする（ほぼ透明。0だとタップを拾わない端末がある） */
 .hap input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: .011; cursor: pointer; }
-.hwrap:has(.hap:active) .btn, .hwrap:has(.hap:active) .choice { transform: scale(.985); background: var(--surface-2); }
+.hwrap > :first-child { min-width: 0; }
+.hwrap:has(> .hap:active) > .btn, .hwrap:has(> .hap:active) > .choice { transform: scale(.985); background: var(--surface-2); }
+.hwrap:has(> .hap:active) > .row { background: var(--surface-2); }
+.hwrap:has(> .hap:active) > :first-child { opacity: .75; }
 .choices.done .hap { display: none; }

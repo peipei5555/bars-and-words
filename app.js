@@ -6,7 +6,7 @@
 
 /* ================= 設定 ================= */
 
-const APP_VERSION = '2026.09.19-5';   // tools/bump-version.mjs が書き換える
+const APP_VERSION = '2026.09.19-6';   // tools/bump-version.mjs が書き換える
 const DAY = 86400000;
 // 箱ごとの次回出題までの間隔。box 0 は「今日もう一度」
 const INTERVALS = [0, 1 * DAY, 3 * DAY, 7 * DAY, 16 * DAY, 35 * DAY, 90 * DAY];
@@ -196,11 +196,22 @@ function buzz(ok) {
   if (!S.haptic || !navigator.vibrate) return;
   navigator.vibrate(ok ? 18 : [35, 60, 35]);
 }
-// ボタンを包んで透明スイッチを重ねる。attr はボタンと同じ data-* を渡す（タップを同じ処理へ流すため）
-function hapWrap(buttonHtml, attr) {
-  if (!IOS_TAP_HAPTIC || !S.haptic) return buttonHtml;
-  return `<div class="hwrap">${buttonHtml}<label class="hap" ${attr} aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label></div>`;
+// 押せるもの全部（ボタン・一覧の行・リンク）に透明スイッチを重ねる。画面を描き直すたびに自動で掛かる。
+// スイッチが押されたら、下のボタンの click() を呼んで本来の処理へ流す。
+const HAP_TARGETS = 'button:not([disabled]), a[href]';
+function hapticize() {
+  if (!IOS_TAP_HAPTIC || !S.haptic) return;
+  document.querySelectorAll(HAP_TARGETS).forEach(el => {
+    if (el.closest('.hwrap') || el.closest('.hap')) return;
+    const wrap = document.createElement('span');
+    wrap.className = 'hwrap';
+    wrap.style.display = getComputedStyle(el).display.startsWith('inline') ? 'inline-grid' : 'grid';
+    el.before(wrap);
+    wrap.appendChild(el);
+    wrap.insertAdjacentHTML('beforeend', '<label class="hap" aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label>');
+  });
 }
+new MutationObserver(hapticize).observe(document.body, { childList: true, subtree: true });
 
 // 自動再生の制限を、最初のタップで解除する
 window.addEventListener('pointerdown', () => { initAudioGraph(); syncBgm(); }, { passive: true });
@@ -482,7 +493,7 @@ function renderSettings() {
       <div class="row"><span><div class="s" id="bgm-status">BGM: ${esc(bgmStatus())}</div></span></div>
       ${sw('voice', '発音を自動で流す', '単語が出たときに読み上げる')}
       ${sw('sfx', '効果音', '正解・不正解で短く鳴らす')}
-      ${sw('haptic', '振動', IOS_TAP_HAPTIC ? 'ボタンを押した瞬間に軽い手応え（iPhone）' : '正解・不正解で振動（Android）')}
+      ${sw('haptic', '振動', IOS_TAP_HAPTIC ? 'ボタンを押した瞬間に軽い手応え（iPhone。強さは変えられない）' : '正解・不正解で振動（Android）')}
     </div>
     <div class="label">アプリ</div>
     <div class="list">
@@ -508,7 +519,7 @@ function renderSettings() {
     S[el.dataset.set] = el.checked; store.save();
     if (el.dataset.set === 'voice' && !el.checked) voice.pause();
     if (el.dataset.set === 'sfx' && el.checked) { initAudioGraph(); sfx(true); }
-    if (el.dataset.set === 'haptic' && el.checked) buzz(true);
+    if (el.dataset.set === 'haptic') { if (el.checked) buzz(true); render(); }
   }));
   document.getElementById('btn-check-update').onclick = async e => {
     const b = e.currentTarget;
@@ -569,8 +580,8 @@ function drawSort() {
     ${sbarHtml(ss.i, ss.queue.length, scopeHome(ss.song))}
     ${wordHtml(w, { q: '意味がわかる？', meaning: false, song: ss.song === 'today' })}
     <div class="pair">
-      ${hapWrap(`<button class="btn" data-sort="0">${ICON.x}知らない</button>`, 'data-sort="0"')}
-      ${hapWrap(`<button class="btn" data-sort="1">${ICON.check}知ってる</button>`, 'data-sort="1"')}
+      <button class="btn" data-sort="0">${ICON.x}知らない</button>
+      <button class="btn" data-sort="1">${ICON.check}知ってる</button>
     </div>
     <button class="undo" id="btn-undo" ${ss.history.length ? '' : 'disabled'}>ひとつ戻す</button>
     <div class="keyhint">← 知らない　→ 知ってる　Space 発音</div>`;
@@ -663,7 +674,7 @@ function drawQuiz() {
   }
   ss.current = { w, opts, answered: false };
   view.innerHTML = `${top}${body}
-    <div class="choices" id="choices">${opts.map((o, k) => hapWrap(`<button class="choice" data-choice="${k}">${esc(o[key])}</button>`, `data-choice="${k}"`)).join('')}</div>
+    <div class="choices" id="choices">${opts.map((o, k) => `<button class="choice" data-choice="${k}">${esc(o[key])}</button>`).join('')}</div>
     <div id="after"></div>
     <div class="keyhint" id="hint">1〜4 で選択</div>`;
   if (!cloze) autoSay(w.id);
@@ -749,18 +760,19 @@ function render() {
   }
 }
 
-let lastHapLabelClick = 0;
+let lastHapTap = 0;
 document.addEventListener('click', e => {
-  // 透明スイッチ: ラベルを押すと、ラベルのクリックの直後にスイッチ自身のクリックも届く。
-  // 二重に進まないよう後者は捨てる。スイッチを直接押した場合（ラベルのクリック無し）はそれを使う
-  let t;
-  if (e.target.matches && e.target.matches('.hap input')) {
-    if (performance.now() - lastHapLabelClick < 150) return;
-    t = e.target.closest('.hap');
-  } else {
-    if (e.target.closest('.hap')) lastHapLabelClick = performance.now();
-    t = e.target.closest('[data-go],[data-play],[data-sort],[data-choice]');
+  // 透明スイッチ: ラベルを押すとラベルとスイッチの両方にクリックが届くので、1回にまとめて下のボタンへ渡す
+  const hap = e.target.closest && e.target.closest('.hap');
+  if (hap) {
+    const now = performance.now();
+    if (now - lastHapTap < 150) return;
+    lastHapTap = now;
+    const target = hap.parentElement.firstElementChild;
+    if (target && !target.disabled) target.click();
+    return;
   }
+  const t = e.target.closest('[data-go],[data-play],[data-sort],[data-choice]');
   if (!t) return;
   if (t.dataset.go) return go(t.dataset.go);
   if (t.dataset.play) return playUrl(audioFor(t.dataset.play, t.dataset.kind), t);
