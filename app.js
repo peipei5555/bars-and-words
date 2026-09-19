@@ -6,7 +6,7 @@
 
 /* ================= 設定 ================= */
 
-const APP_VERSION = '2026.09.19-4';   // tools/bump-version.mjs が書き換える
+const APP_VERSION = '2026.09.19-5';   // tools/bump-version.mjs が書き換える
 const DAY = 86400000;
 // 箱ごとの次回出題までの間隔。box 0 は「今日もう一度」
 const INTERVALS = [0, 1 * DAY, 3 * DAY, 7 * DAY, 16 * DAY, 35 * DAY, 90 * DAY];
@@ -186,24 +186,20 @@ function sfx(ok) {
     o.start(t + dt); o.stop(t + dt + 0.3);
   }
 }
-// 振動。AndroidはVibration API。iPhone（iOS 18以降）はSafariに振動APIが無いので、
-// 「スイッチを切り替えたときの手応え」を借りる（ios-haptics と同じ方式。タップの処理中に呼ぶ必要がある）
-function iosTick() {
-  const label = document.createElement('label');
-  label.ariaHidden = 'true';
-  label.style.display = 'none';
-  const input = document.createElement('input');
-  input.type = 'checkbox';
-  input.setAttribute('switch', '');
-  label.appendChild(input);
-  document.head.appendChild(label);
-  label.click();
-  document.head.removeChild(label);
-}
+// 振動。AndroidはVibration APIで鳴らす。
+// iPhoneはSafariに振動APIが無く、ページから自動でスイッチを押す裏技も効かなかった。
+// そこで押すボタンの上に透明なiOSスイッチ（input switch）を重ね、指が本物のスイッチを押すようにする。
+// iOSはスイッチ操作に手応えを返すので、タップした瞬間に軽く振動する（正解・不正解の区別はできない）。
+const IOS_TAP_HAPTIC = (!navigator.vibrate && /iP(hone|ad|od)|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document)
+  || /[?&]hap=1/.test(location.search);   // ?hap=1 はPCでの動作確認用
 function buzz(ok) {
-  if (!S.haptic) return;
-  if (navigator.vibrate) { navigator.vibrate(ok ? 18 : [35, 60, 35]); return; }
-  try { iosTick(); } catch (e) {}
+  if (!S.haptic || !navigator.vibrate) return;
+  navigator.vibrate(ok ? 18 : [35, 60, 35]);
+}
+// ボタンを包んで透明スイッチを重ねる。attr はボタンと同じ data-* を渡す（タップを同じ処理へ流すため）
+function hapWrap(buttonHtml, attr) {
+  if (!IOS_TAP_HAPTIC || !S.haptic) return buttonHtml;
+  return `<div class="hwrap">${buttonHtml}<label class="hap" ${attr} aria-hidden="true"><input type="checkbox" switch tabindex="-1"></label></div>`;
 }
 
 // 自動再生の制限を、最初のタップで解除する
@@ -486,7 +482,7 @@ function renderSettings() {
       <div class="row"><span><div class="s" id="bgm-status">BGM: ${esc(bgmStatus())}</div></span></div>
       ${sw('voice', '発音を自動で流す', '単語が出たときに読み上げる')}
       ${sw('sfx', '効果音', '正解・不正解で短く鳴らす')}
-      ${sw('haptic', '振動', 'Androidは振動、iPhoneは iOS 18 以降で軽い手応え')}
+      ${sw('haptic', '振動', IOS_TAP_HAPTIC ? 'ボタンを押した瞬間に軽い手応え（iPhone）' : '正解・不正解で振動（Android）')}
     </div>
     <div class="label">アプリ</div>
     <div class="list">
@@ -573,8 +569,8 @@ function drawSort() {
     ${sbarHtml(ss.i, ss.queue.length, scopeHome(ss.song))}
     ${wordHtml(w, { q: '意味がわかる？', meaning: false, song: ss.song === 'today' })}
     <div class="pair">
-      <button class="btn" data-sort="0">${ICON.x}知らない</button>
-      <button class="btn" data-sort="1">${ICON.check}知ってる</button>
+      ${hapWrap(`<button class="btn" data-sort="0">${ICON.x}知らない</button>`, 'data-sort="0"')}
+      ${hapWrap(`<button class="btn" data-sort="1">${ICON.check}知ってる</button>`, 'data-sort="1"')}
     </div>
     <button class="undo" id="btn-undo" ${ss.history.length ? '' : 'disabled'}>ひとつ戻す</button>
     <div class="keyhint">← 知らない　→ 知ってる　Space 発音</div>`;
@@ -667,7 +663,7 @@ function drawQuiz() {
   }
   ss.current = { w, opts, answered: false };
   view.innerHTML = `${top}${body}
-    <div class="choices" id="choices">${opts.map((o, k) => `<button class="choice" data-choice="${k}">${esc(o[key])}</button>`).join('')}</div>
+    <div class="choices" id="choices">${opts.map((o, k) => hapWrap(`<button class="choice" data-choice="${k}">${esc(o[key])}</button>`, `data-choice="${k}"`)).join('')}</div>
     <div id="after"></div>
     <div class="keyhint" id="hint">1〜4 で選択</div>`;
   if (!cloze) autoSay(w.id);
@@ -682,8 +678,9 @@ function choose(k) {
   sfx(ok); buzz(ok);
   const box = document.getElementById('choices');
   box.classList.add('done');
-  box.children[k].classList.add(ok ? 'right' : 'wrong');
-  box.children[cur.opts.indexOf(w)].classList.add('right');
+  const btns = box.querySelectorAll('.choice');
+  btns[k].classList.add(ok ? 'right' : 'wrong');
+  btns[cur.opts.indexOf(w)].classList.add('right');
 
   if (ss.type === 'check') passCheck(w.id, ok);
   else answer(w.id, ok);
@@ -752,8 +749,18 @@ function render() {
   }
 }
 
+let lastHapLabelClick = 0;
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-go],[data-play],[data-sort],[data-choice]');
+  // 透明スイッチ: ラベルを押すと、ラベルのクリックの直後にスイッチ自身のクリックも届く。
+  // 二重に進まないよう後者は捨てる。スイッチを直接押した場合（ラベルのクリック無し）はそれを使う
+  let t;
+  if (e.target.matches && e.target.matches('.hap input')) {
+    if (performance.now() - lastHapLabelClick < 150) return;
+    t = e.target.closest('.hap');
+  } else {
+    if (e.target.closest('.hap')) lastHapLabelClick = performance.now();
+    t = e.target.closest('[data-go],[data-play],[data-sort],[data-choice]');
+  }
   if (!t) return;
   if (t.dataset.go) return go(t.dataset.go);
   if (t.dataset.play) return playUrl(audioFor(t.dataset.play, t.dataset.kind), t);

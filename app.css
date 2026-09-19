@@ -237,3 +237,11 @@ label.row { cursor: pointer; }
 .update-bar[hidden] { display: none; }
 .update-bar .pill { background: var(--text); color: #111; }
 @media (max-width: 640px) { .update-bar { margin: 0 16px 4px; } }
+
+/* iPhoneの手応え用：ボタンの上に重ねる透明なスイッチ（app.js の hapWrap） */
+.hwrap { position: relative; display: grid; }
+.hap { position: absolute; inset: 0; z-index: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* スイッチ本体もボタン全面に広げ、指が直接スイッチに当たるようにする（ほぼ透明。0だとタップを拾わない端末がある） */
+.hap input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: .011; cursor: pointer; }
+.hwrap:has(.hap:active) .btn, .hwrap:has(.hap:active) .choice { transform: scale(.985); background: var(--surface-2); }
+.choices.done .hap { display: none; }
