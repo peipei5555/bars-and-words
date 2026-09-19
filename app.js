@@ -6,14 +6,14 @@
 
 /* ================= 設定 ================= */
 
-const APP_VERSION = '2026.09.19-3';   // tools/bump-version.mjs が書き換える
+const APP_VERSION = '2026.09.19-4';   // tools/bump-version.mjs が書き換える
 const DAY = 86400000;
 // 箱ごとの次回出題までの間隔。box 0 は「今日もう一度」
 const INTERVALS = [0, 1 * DAY, 3 * DAY, 7 * DAY, 16 * DAY, 35 * DAY, 90 * DAY];
 const MASTER_BOX = 4;      // ここまで上がったら「覚えた」
 const SESSION_MAX = 15;    // 1回の学習で出す語数
 const DAILY_NEW = 10;      // 1日に仕分ける新しい語の数
-const BGM_MAX = 0.25;      // 音量スライダー最大時のBGMの大きさ
+const BGM_MAX = 0.3;       // 音量スライダー最大時のBGMの大きさ（100で最初の版とほぼ同じ）
 const STORE_KEY = 'bw2';
 
 const SONGS = ARTIST.songs;
@@ -23,12 +23,15 @@ const WORD = Object.fromEntries(WORDS.map(w => [w.id, w]));
 /* ================= 記録 ================= */
 
 const store = (() => {
-  let data = { w: {}, days: [], bgmVol: 0.4, voice: true, sfx: true, haptic: true, today: { d: '', sorted: 0 } };
+  let data = { w: {}, days: [], bgmVol: 0.5, voice: true, sfx: true, haptic: true, today: { d: '', sorted: 0 } };
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) data = Object.assign(data, JSON.parse(raw));
   } catch (e) { /* 読めない環境でも動かす */ }
   if (data.bgm === false) { data.bgmVol = 0; }   // 旧設定（オン/オフだけだった頃）からの引き継ぎ
+  // 2026.09.19-3 の初期値 0.4 は小さすぎて聞こえなかったので、その値のままの人だけ引き上げる
+  if (!data.volFix && data.bgmVol === 0.4) data.bgmVol = 0.5;
+  data.volFix = true;
   delete data.bgm;
   return {
     data,
@@ -113,11 +116,10 @@ bgm.loop = true;
 bgm.preload = 'none';
 
 function initAudioGraph() {
-  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+  // iOSは裏へ回すと 'interrupted' のまま止まることがあるので、running 以外なら起こす
+  if (actx) { if (actx.state !== 'running') actx.resume().catch(() => {}); return; }
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
-  // iOSのマナーモードでも効果音が消えないようにする（対応している版だけ）
-  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
   actx = new AC();
   // iOSは audio.volume を変えられないので、BGMの音量はWeb Audioで絞る
   const src = actx.createMediaElementSource(bgm);
@@ -125,11 +127,19 @@ function initAudioGraph() {
   bgmGain.gain.value = bgmLevel();
   src.connect(bgmGain).connect(actx.destination);
 }
-// スライダーは聴感に合わせて2乗で効かせる
-function bgmLevel() { return BGM_MAX * S.bgmVol * S.bgmVol * (ducked ? 0.3 : 1); }
+// スライダーは聴感に合わせて1.5乗で効かせる
+function bgmLevel() { return BGM_MAX * Math.pow(S.bgmVol, 1.5) * (ducked ? 0.35 : 1); }
 function applyBgmLevel() {
   if (bgmGain) bgmGain.gain.setTargetAtTime(bgmLevel(), actx.currentTime, 0.1);
   else bgm.volume = Math.min(1, bgmLevel());
+}
+let bgmError = '';
+bgm.addEventListener('error', () => { bgmError = `読み込み失敗(${bgm.error ? bgm.error.code : '?'})`; });
+bgm.addEventListener('playing', () => { bgmError = ''; });
+function bgmStatus() {
+  const parts = [bgm.paused ? '停止中' : '再生中', `音声処理 ${actx ? actx.state : '未開始'}`, `曲 ${bgm.dataset.song || 'なし'}`];
+  if (bgmError) parts.push(bgmError);
+  return parts.join(' · ');
 }
 function wantBgm(songId) {
   if (songId && SONG[songId]) bgmSong = songId;
@@ -141,7 +151,7 @@ function syncBgm() {
     bgm.dataset.song = bgmSong;
     bgm.src = `bgm/${bgmSong}_${Math.random() < 0.5 ? 'a' : 'b'}.mp3`;
   }
-  if (bgm.paused) bgm.play().catch(() => {});
+  if (bgm.paused) bgm.play().catch(e => { if (e && e.name !== 'NotAllowedError') bgmError = e.name; });
 }
 function playUrl(url, btn) {
   if (!url) return;
@@ -176,21 +186,24 @@ function sfx(ok) {
     o.start(t + dt); o.stop(t + dt + 0.3);
   }
 }
-// 振動。AndroidはVibration API、iPhoneは iOS 18 以降の「スイッチを押した感触」を借りる
-const hapticLabel = (() => {
-  const l = document.createElement('label');
-  l.setAttribute('aria-hidden', 'true');
-  l.style.cssText = 'position:fixed;left:-100px;top:0;opacity:0;pointer-events:none';
-  const i = document.createElement('input');
-  i.type = 'checkbox'; i.setAttribute('switch', ''); i.tabIndex = -1;
-  l.appendChild(i);
-  document.body.appendChild(l);
-  return l;
-})();
+// 振動。AndroidはVibration API。iPhone（iOS 18以降）はSafariに振動APIが無いので、
+// 「スイッチを切り替えたときの手応え」を借りる（ios-haptics と同じ方式。タップの処理中に呼ぶ必要がある）
+function iosTick() {
+  const label = document.createElement('label');
+  label.ariaHidden = 'true';
+  label.style.display = 'none';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.setAttribute('switch', '');
+  label.appendChild(input);
+  document.head.appendChild(label);
+  label.click();
+  document.head.removeChild(label);
+}
 function buzz(ok) {
   if (!S.haptic) return;
   if (navigator.vibrate) { navigator.vibrate(ok ? 18 : [35, 60, 35]); return; }
-  hapticLabel.click();
+  try { iosTick(); } catch (e) {}
 }
 
 // 自動再生の制限を、最初のタップで解除する
@@ -344,6 +357,7 @@ function weekHtml() {
 
 function renderHome() {
   setMode(true);
+  wantBgm(bgmSong || SONGS[0].id);
   const st = streak();
   const tasks = todayTasks();
   const next = tasks.find(t => !t.done);
@@ -469,6 +483,7 @@ function renderSettings() {
         <span><div class="t">BGMの音量</div><div class="s" id="vol-text">${S.bgmVol ? Math.round(S.bgmVol * 100) : 'オフ'}</div></span>
         <input type="range" id="bgm-vol" min="0" max="100" step="5" value="${Math.round(S.bgmVol * 100)}" aria-label="BGMの音量">
       </div>
+      <div class="row"><span><div class="s" id="bgm-status">BGM: ${esc(bgmStatus())}</div></span></div>
       ${sw('voice', '発音を自動で流す', '単語が出たときに読み上げる')}
       ${sw('sfx', '効果音', '正解・不正解で短く鳴らす')}
       ${sw('haptic', '振動', 'Androidは振動、iPhoneは iOS 18 以降で軽い手応え')}
@@ -490,6 +505,9 @@ function renderSettings() {
     initAudioGraph(); applyBgmLevel(); syncBgm();
   });
   vol.addEventListener('change', () => store.save());
+  // 状態表示を追いかける（画面を離れたら止まる）
+  const st = document.getElementById('bgm-status');
+  const tick = setInterval(() => { if (!document.body.contains(st)) return clearInterval(tick); st.textContent = `BGM: ${bgmStatus()}`; }, 1000);
   view.querySelectorAll('[data-set]').forEach(el => el.addEventListener('change', () => {
     S[el.dataset.set] = el.checked; store.save();
     if (el.dataset.set === 'voice' && !el.checked) voice.pause();
