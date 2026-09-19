@@ -6,13 +6,14 @@
 
 /* ================= 設定 ================= */
 
+const APP_VERSION = '2026.09.19-3';   // tools/bump-version.mjs が書き換える
 const DAY = 86400000;
 // 箱ごとの次回出題までの間隔。box 0 は「今日もう一度」
 const INTERVALS = [0, 1 * DAY, 3 * DAY, 7 * DAY, 16 * DAY, 35 * DAY, 90 * DAY];
 const MASTER_BOX = 4;      // ここまで上がったら「覚えた」
 const SESSION_MAX = 15;    // 1回の学習で出す語数
-const BGM_LEVEL = 0.22;
-const BGM_DUCK = 0.06;
+const DAILY_NEW = 10;      // 1日に仕分ける新しい語の数
+const BGM_MAX = 0.25;      // 音量スライダー最大時のBGMの大きさ
 const STORE_KEY = 'bw2';
 
 const SONGS = ARTIST.songs;
@@ -22,11 +23,13 @@ const WORD = Object.fromEntries(WORDS.map(w => [w.id, w]));
 /* ================= 記録 ================= */
 
 const store = (() => {
-  let data = { w: {}, days: [], bgm: true, voice: true };
+  let data = { w: {}, days: [], bgmVol: 0.4, voice: true, sfx: true, haptic: true, today: { d: '', sorted: 0 } };
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) data = Object.assign(data, JSON.parse(raw));
   } catch (e) { /* 読めない環境でも動かす */ }
+  if (data.bgm === false) { data.bgmVol = 0; }   // 旧設定（オン/オフだけだった頃）からの引き継ぎ
+  delete data.bgm;
   return {
     data,
     save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) {} },
@@ -34,6 +37,10 @@ const store = (() => {
 })();
 const S = store.data;
 
+function dayKey(d = new Date()) {
+  // 端末の現地時間で日付を切る（UTCだと日本では朝9時に日付が変わってしまう）
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 function rec(id) { return S.w[id]; }
 function status(id) {
   const r = S.w[id];
@@ -46,17 +53,22 @@ function isDue(id, now = Date.now()) {
   return !!r && r.s === 'learn' && r.due <= now;
 }
 function markStudied() {
-  const d = new Date().toISOString().slice(0, 10);
+  const d = dayKey();
   if (S.days[S.days.length - 1] !== d) { S.days.push(d); S.days = S.days.slice(-400); }
 }
 function streak() {
-  let n = 0;
-  const day = new Date();
   const has = new Set(S.days);
+  const day = new Date();
   // 今日まだやっていなくても、昨日まで続いていれば連続として数える
-  if (!has.has(day.toISOString().slice(0, 10))) day.setDate(day.getDate() - 1);
-  while (has.has(day.toISOString().slice(0, 10))) { n++; day.setDate(day.getDate() - 1); }
+  if (!has.has(dayKey(day))) day.setDate(day.getDate() - 1);
+  let n = 0;
+  while (has.has(dayKey(day))) { n++; day.setDate(day.getDate() - 1); }
   return n;
+}
+function sortedToday() { return S.today.d === dayKey() ? S.today.sorted : 0; }
+function addSortedToday(n) {
+  if (S.today.d !== dayKey()) S.today = { d: dayKey(), sorted: 0 };
+  S.today.sorted = Math.max(0, S.today.sorted + n);
 }
 
 function setClaimed(id) { S.w[id] = { s: 'claimed', box: 0, due: 0, lapses: 0, seen: false }; }
@@ -95,7 +107,7 @@ function nextDueText(list) {
 
 const voice = new Audio();
 voice.preload = 'auto';
-let actx = null, bgmGain = null, bgmSong = null;
+let actx = null, bgmGain = null, bgmSong = null, ducked = false;
 const bgm = new Audio();
 bgm.loop = true;
 bgm.preload = 'none';
@@ -104,25 +116,28 @@ function initAudioGraph() {
   if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
+  // iOSのマナーモードでも効果音が消えないようにする（対応している版だけ）
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
   actx = new AC();
   // iOSは audio.volume を変えられないので、BGMの音量はWeb Audioで絞る
   const src = actx.createMediaElementSource(bgm);
   bgmGain = actx.createGain();
-  bgmGain.gain.value = BGM_LEVEL;
+  bgmGain.gain.value = bgmLevel();
   src.connect(bgmGain).connect(actx.destination);
 }
-function setBgmLevel(v) {
-  if (bgmGain) bgmGain.gain.setTargetAtTime(v, actx.currentTime, 0.12);
-  else bgm.volume = v;
+// スライダーは聴感に合わせて2乗で効かせる
+function bgmLevel() { return BGM_MAX * S.bgmVol * S.bgmVol * (ducked ? 0.3 : 1); }
+function applyBgmLevel() {
+  if (bgmGain) bgmGain.gain.setTargetAtTime(bgmLevel(), actx.currentTime, 0.1);
+  else bgm.volume = Math.min(1, bgmLevel());
 }
 function wantBgm(songId) {
-  if (songId && songId !== 'all') bgmSong = songId;
+  if (songId && SONG[songId]) bgmSong = songId;
   syncBgm();
 }
 function syncBgm() {
-  if (!S.bgm || !bgmSong) { bgm.pause(); return; }
-  const cur = bgm.dataset.song;
-  if (cur !== bgmSong) {
+  if (!S.bgmVol || !bgmSong) { bgm.pause(); return; }
+  if (bgm.dataset.song !== bgmSong) {
     bgm.dataset.song = bgmSong;
     bgm.src = `bgm/${bgmSong}_${Math.random() < 0.5 ? 'a' : 'b'}.mp3`;
   }
@@ -136,13 +151,47 @@ function playUrl(url, btn) {
   if (btn) btn.classList.add('on');
   voice.play().catch(() => {});
 }
-voice.addEventListener('play', () => setBgmLevel(BGM_DUCK));
+voice.addEventListener('play', () => { ducked = true; applyBgmLevel(); });
 ['ended', 'pause', 'error'].forEach(ev => voice.addEventListener(ev, () => {
-  setBgmLevel(BGM_LEVEL);
+  ducked = false; applyBgmLevel();
   document.querySelectorAll('.play.on').forEach(b => b.classList.remove('on'));
 }));
 function audioFor(id, kind) { return (typeof AUDIO !== 'undefined' && AUDIO[id]) ? AUDIO[id][kind] : null; }
 function autoSay(id, kind = 'word') { if (S.voice) playUrl(audioFor(id, kind)); }
+
+// 正解・不正解の効果音。音ファイルを増やさないよう、その場で合成する
+function sfx(ok) {
+  if (!S.sfx || !actx) return;
+  const t = actx.currentTime;
+  const notes = ok ? [[880, 0], [1318.5, 0.08]] : [[233, 0], [174.6, 0.11]];
+  for (const [f, dt] of notes) {
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = ok ? 'sine' : 'triangle';
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t + dt);
+    g.gain.exponentialRampToValueAtTime(ok ? 0.09 : 0.13, t + dt + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dt + (ok ? 0.16 : 0.24));
+    o.connect(g).connect(actx.destination);
+    o.start(t + dt); o.stop(t + dt + 0.3);
+  }
+}
+// 振動。AndroidはVibration API、iPhoneは iOS 18 以降の「スイッチを押した感触」を借りる
+const hapticLabel = (() => {
+  const l = document.createElement('label');
+  l.setAttribute('aria-hidden', 'true');
+  l.style.cssText = 'position:fixed;left:-100px;top:0;opacity:0;pointer-events:none';
+  const i = document.createElement('input');
+  i.type = 'checkbox'; i.setAttribute('switch', ''); i.tabIndex = -1;
+  l.appendChild(i);
+  document.body.appendChild(l);
+  return l;
+})();
+function buzz(ok) {
+  if (!S.haptic) return;
+  if (navigator.vibrate) { navigator.vibrate(ok ? 18 : [35, 60, 35]); return; }
+  hapticLabel.click();
+}
 
 // 自動再生の制限を、最初のタップで解除する
 window.addEventListener('pointerdown', () => { initAudioGraph(); syncBgm(); }, { passive: true });
@@ -151,14 +200,14 @@ window.addEventListener('keydown', () => { initAudioGraph(); syncBgm(); });
 /* ================= キャラの台詞（ホームとまとめ画面だけで使う） ================= */
 
 const LINES = {
-  hello: ['よう、来たな。今日も1語ずつ潰していこう', '知らない語だけやればいい。それが一番速い', 'マイクチェック完了。始めよう'],
-  helloStreak: n => `${n}日連続。その調子でいこう`,
-  due: n => `復習が${n}語たまってる。まずはそっちから`,
+  hello: ['よう、来たな。今日の分を片付けよう', '知らない語だけやればいい。それが一番速い', 'マイクチェック完了。始めよう'],
+  helloStreak: n => `${n}日連続。今日もつなごう`,
+  allDone: n => `今日のメニューは全部終わり。${n}日連続、ナイス`,
   sortDone: '仕分け完了。「知ってる」語は本当に知ってるか確かめよう',
   good: ['キマってる。この調子', 'いいね、ちゃんと身についてる'],
   soso: ['間違えた語は、また近いうちに出す', '悪くない。取りこぼしは次で拾おう'],
   done: '今日の分は終わり。また明日な',
-  allDone: 'この曲の語は全部押さえた。次の曲いこう',
+  songDone: 'この曲の語は全部押さえた。次の曲いこう',
 };
 function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
 function say(text) { document.getElementById('bubble').textContent = text; }
@@ -227,11 +276,11 @@ function detailHtml(w) {
     </div>
   </div>`;
 }
-function wordHtml(w, { q = '', meaning = true } = {}) {
+function wordHtml(w, { q = '', meaning = true, song = false } = {}) {
   return `<div class="word">
     ${q ? `<div class="q">${q}</div>` : ''}
     <div class="head">${esc(w.head)}</div>
-    <div class="pos">${esc(w.pos)} · Lv${w.lv}</div>
+    <div class="pos">${esc(w.pos)} · Lv${w.lv}${song ? ` · ${esc(SONG[w.song].title)}` : ''}</div>
     ${meaning ? `<div class="ja">${esc(w.ja)}</div>` : ''}
     ${playBtn(w.id, 'word', '発音')}
   </div>`;
@@ -257,29 +306,85 @@ function tilesHtml(c) {
 function summaryHead(line) {
   return `<img class="avatar" src="assets/mc.png" alt=""><div class="line">${esc(line)}</div>`;
 }
+function scopeHome(song) { return SONG[song] ? `#/song/${song}` : '#/'; }
 
-/* ================= 画面: ホーム ================= */
+/* ================= 今日のメニュー ================= */
+
+// 今日の新しい語：曲の並び順に、未仕分けの語から今日の残り枠ぶん
+function todayNewIds() {
+  const left = Math.max(0, DAILY_NEW - sortedToday());
+  return WORDS.filter(w => status(w.id) === 'new').slice(0, left).map(w => w.id);
+}
+function todayTasks() {
+  const c = counts(WORDS);
+  const newLeft = todayNewIds().length;
+  const anyNew = c.new > 0;
+  return [
+    { key: 'review', t: '復習', go: '#/learn/all', n: c.due,
+      s: c.due ? `期限が来た${c.due}語` : '今日の分は完了', done: c.due === 0 },
+    { key: 'check', t: '確認テスト', go: '#/check/all', n: c.claimed,
+      s: c.claimed ? '「知ってる」と答えた語を確かめる' : 'テスト待ちなし', done: c.claimed === 0 },
+    { key: 'new', t: '新しい語', go: '#/sort/today', n: newLeft,
+      s: !anyNew ? '全曲の語を仕分け済み' : newLeft ? `今日あと${newLeft}語を仕分ける` : `今日の${DAILY_NEW}語は完了`, done: newLeft === 0 },
+  ];
+}
+
+/* ================= 画面: ホーム（今日やることだけ） ================= */
+
+function weekHtml() {
+  const has = new Set(S.days);
+  const names = ['日', '月', '火', '水', '木', '金', '土'];
+  const cells = [];
+  for (let k = 6; k >= 0; k--) {
+    const d = new Date(); d.setDate(d.getDate() - k);
+    cells.push(`<span class="dday${has.has(dayKey(d)) ? ' on' : ''}${k === 0 ? ' today' : ''}"><i></i>${names[d.getDay()]}</span>`);
+  }
+  return `<div class="week">${cells.join('')}</div>`;
+}
 
 function renderHome() {
   setMode(true);
-  const c = counts(WORDS);
   const st = streak();
-  say(c.due ? LINES.due(c.due) : st >= 2 ? LINES.helloStreak(st) : pick(LINES.hello));
-
-  const firstNew = SONGS.find(s => counts(wordsOf(s.id)).new > 0);
-  let actions = '';
-  if (c.due) actions += `<button class="btn primary" data-go="#/learn/all">今日の復習 <span class="count">${c.due}</span></button>`;
-  else if (firstNew) actions += `<button class="btn primary" data-go="#/sort/${firstNew.id}">${esc(firstNew.title)} を始める</button>`;
-  if (c.claimed) actions += `<button class="btn" data-go="#/check/all">確認テスト <span class="count">${c.claimed}</span></button>`;
+  const tasks = todayTasks();
+  const next = tasks.find(t => !t.done);
+  const doneToday = S.days[S.days.length - 1] === dayKey();
+  say(!next ? LINES.allDone(st) : st >= 2 ? LINES.helloStreak(st) : pick(LINES.hello));
 
   view.innerHTML = `
-    <div class="overview">
-      <div class="big num">${c.mastered}<small> / ${WORDS.length}語 覚えた</small></div>
-      ${meterHtml(c, WORDS.length)}
-      <div class="sub"><span>学習中 ${c.learning}</span><span>${st ? `${st}日連続` : '今日から'}</span></div>
+    <div class="streak">
+      <div><div class="big num">${st}<small> 日連続</small></div>
+      <div class="muted">${doneToday ? '今日の記録はついた' : st ? '今日やれば記録がつながる' : '今日から記録をつけよう'}</div></div>
+      ${weekHtml()}
     </div>
-    ${actions ? `<div class="actions">${actions}</div>` : ''}
-    <div class="label">Eminem</div>
+    <div class="label">今日やること</div>
+    ${next
+      ? `<button class="btn primary" data-go="${next.go}">${next.t}を始める <span class="count">${next.n}</span></button>`
+      : `<div class="alldone">${ICON.check}今日のメニューは完了</div>`}
+    <div class="list tasks">${tasks.map((t, i) => `
+      <button class="row task${t.done ? ' done' : ''}" data-go="${t.go}" ${t.done ? 'disabled' : ''}>
+        <span class="mark">${t.done ? ICON.check : i + 1}</span>
+        <span><div class="t">${t.t}</div><div class="s">${t.s}</div></span>
+        <span class="r">${t.done ? '' : `${t.n}<span class="chev"></span>`}</span>
+      </button>`).join('')}</div>
+    <div class="label">そのほか</div>
+    <div class="list">
+      <button class="row" data-go="#/songs"><span><div class="t">曲と単語の一覧</div><div class="s">${esc(ARTIST.name)} · ${SONGS.length}曲 · 覚えた ${counts(WORDS).mastered} / ${WORDS.length}語</div></span><span class="r"><span class="chev"></span></span></button>
+      <button class="row" data-go="#/settings"><span><div class="t">設定</div><div class="s">BGMの音量・効果音・振動・更新</div></span><span class="r"><span class="chev"></span></span></button>
+    </div>`;
+}
+
+/* ================= 画面: 曲の一覧（アーティスト紹介つき） ================= */
+
+function renderSongs() {
+  setMode(false);
+  const c = counts(WORDS);
+  view.innerHTML = `
+    <button class="back" data-go="#/">ホーム</button>
+    <h1 class="title">${esc(ARTIST.name)}</h1>
+    <p class="about">${esc(ARTIST.bio)}</p>
+    ${meterHtml(c, WORDS.length)}
+    <div class="legend"><span>覚えた <b>${c.mastered}</b></span><span>学習中 <b>${c.learning}</b></span><span>テスト待ち <b>${c.claimed}</b></span><span>未仕分け <b>${c.new}</b></span></div>
+    <div class="label">${SONGS.length}曲</div>
     <div class="list">${SONGS.map(s => {
       const list = wordsOf(s.id); const k = counts(list);
       const started = k.new < list.length;
@@ -292,15 +397,7 @@ function renderHome() {
         <span class="r">${k.due ? '<span class="dot" title="復習あり"></span>' : ''}<span class="chev"></span></span>
       </button>`;
     }).join('')}</div>
-    <div class="foot">
-      歌詞は載せていません。例文はすべて書き下ろしです。原曲の歌詞は各曲ページのリンクから Genius で。
-      キャラクターとBGMはAIで作ったオリジナルです。学習記録はこの端末の中だけに保存されます。<br>
-      <button id="btn-reset">学習記録をリセット</button>
-    </div>`;
-  document.getElementById('btn-reset').onclick = () => {
-    if (!confirm('この端末の学習記録をすべて消します。よろしいですか？')) return;
-    S.w = {}; S.days = []; store.save(); render();
-  };
+    <div class="foot">歌詞は載せていません。例文はすべて書き下ろしです。原曲の歌詞は各曲ページのリンクから Genius で。キャラクターとBGMはAIで作ったオリジナルです。</div>`;
 }
 
 /* ================= 画面: 曲 ================= */
@@ -313,25 +410,21 @@ function renderSong(id) {
   const list = wordsOf(id); const c = counts(list);
   const genius = `https://genius.com/search?q=${encodeURIComponent(`${ARTIST.name} ${s.title}`)}`;
   const next = nextDueText(list);
-
-  // いちばん先にやるべき操作だけを主ボタンにする
   const steps = [
     { n: c.new, go: `#/sort/${id}`, t: '仕分ける', s: '知ってる／知らないを選ぶ' },
     { n: c.claimed, go: `#/check/${id}`, t: '確認テスト', s: '「知ってる」語を確かめる' },
     { n: c.due, go: `#/learn/${id}`, t: '学習・復習', s: c.due ? '期限が来た語' : next ? `次の復習は${next}` : 'まだありません' },
   ];
-  const main = steps.find(x => x.n > 0);
   view.innerHTML = `
-    <button class="back" data-go="#/">曲の一覧</button>
+    <button class="back" data-go="#/songs">曲の一覧</button>
     <h1 class="title">${esc(s.title)}</h1>
     <div class="meta">${esc(s.album)} · ${s.year} · <a href="${genius}" target="_blank" rel="noopener">歌詞を Genius で見る</a></div>
+    ${s.about ? `<p class="about">${esc(s.about)}</p>` : ''}
     ${meterHtml(c, list.length)}
     <div class="legend"><span>覚えた <b>${c.mastered}</b></span><span>学習中 <b>${c.learning}</b></span><span>テスト待ち <b>${c.claimed}</b></span><span>未仕分け <b>${c.new}</b></span></div>
-    <div class="actions">${main
-      ? `<button class="btn primary" data-go="${main.go}">${main.t} <span class="count">${main.n}</span></button>`
-      : `<div class="muted">${c.mastered === list.length ? LINES.allDone : `今日の分は完了。${steps[2].s}`}</div>`}</div>
-    <div class="label">${main ? 'ほかのステップ' : 'ステップ'}</div>
-    <div class="list">${steps.filter(x => x !== main).map(x => `
+    ${c.mastered === list.length ? `<div class="alldone">${ICON.check}${LINES.songDone}</div>` : ''}
+    <div class="label">この曲だけやる</div>
+    <div class="list">${steps.map(x => `
       <button class="row" data-go="${x.go}" ${x.n ? '' : 'disabled'}>
         <span><div class="t">${x.t}</div><div class="s">${x.s}</div></span>
         <span class="r">${x.n}<span class="chev"></span></span>
@@ -357,17 +450,98 @@ function renderWord(id) {
   autoSay(id);
 }
 
+/* ================= 画面: 設定 ================= */
+
+function renderSettings() {
+  setMode(false);
+  wantBgm(bgmSong || SONGS[0].id);   // 音量を聞きながら調整できるように鳴らす
+  const sw = (key, t, s) => `
+    <label class="row">
+      <span><div class="t">${t}</div>${s ? `<div class="s">${s}</div>` : ''}</span>
+      <input type="checkbox" class="toggle" data-set="${key}" ${S[key] ? 'checked' : ''}>
+    </label>`;
+  view.innerHTML = `
+    <button class="back" data-go="#/">ホーム</button>
+    <h1 class="title">設定</h1>
+    <div class="label">音</div>
+    <div class="list">
+      <div class="row slider-row">
+        <span><div class="t">BGMの音量</div><div class="s" id="vol-text">${S.bgmVol ? Math.round(S.bgmVol * 100) : 'オフ'}</div></span>
+        <input type="range" id="bgm-vol" min="0" max="100" step="5" value="${Math.round(S.bgmVol * 100)}" aria-label="BGMの音量">
+      </div>
+      ${sw('voice', '発音を自動で流す', '単語が出たときに読み上げる')}
+      ${sw('sfx', '効果音', '正解・不正解で短く鳴らす')}
+      ${sw('haptic', '振動', 'Androidは振動、iPhoneは iOS 18 以降で軽い手応え')}
+    </div>
+    <div class="label">アプリ</div>
+    <div class="list">
+      <div class="row">
+        <span><div class="t">いまの版</div><div class="s" id="ver-text">${APP_VERSION}</div></span>
+        <button class="pill" id="btn-check-update">更新を確認</button>
+      </div>
+      <button class="row" id="btn-reset"><span><div class="t danger">学習記録をリセット</div><div class="s">この端末の記録をすべて消す</div></span></button>
+    </div>
+    <div class="foot">学習記録はこの端末の中だけに保存されます。</div>`;
+
+  const vol = document.getElementById('bgm-vol');
+  vol.addEventListener('input', () => {
+    S.bgmVol = Number(vol.value) / 100;
+    document.getElementById('vol-text').textContent = S.bgmVol ? Math.round(S.bgmVol * 100) : 'オフ';
+    initAudioGraph(); applyBgmLevel(); syncBgm();
+  });
+  vol.addEventListener('change', () => store.save());
+  view.querySelectorAll('[data-set]').forEach(el => el.addEventListener('change', () => {
+    S[el.dataset.set] = el.checked; store.save();
+    if (el.dataset.set === 'voice' && !el.checked) voice.pause();
+    if (el.dataset.set === 'sfx' && el.checked) { initAudioGraph(); sfx(true); }
+    if (el.dataset.set === 'haptic' && el.checked) buzz(true);
+  }));
+  document.getElementById('btn-check-update').onclick = async e => {
+    const b = e.currentTarget;
+    b.textContent = '確認中…';
+    const latest = await fetchLatestVersion();
+    if (!latest) { b.textContent = '確認できませんでした'; return; }
+    if (latest !== APP_VERSION) { b.textContent = `${latest} に更新`; b.onclick = reloadLatest; }
+    else b.textContent = '最新です';
+  };
+  document.getElementById('btn-reset').onclick = () => {
+    if (!confirm('この端末の学習記録をすべて消します。よろしいですか？')) return;
+    S.w = {}; S.days = []; S.today = { d: '', sorted: 0 }; store.save(); go('#/');
+  };
+}
+
+/* ================= 更新の確認 ================= */
+
+async function fetchLatestVersion() {
+  try {
+    const r = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    return r.ok ? (await r.json()).version : null;
+  } catch (e) { return null; }
+}
+function reloadLatest() {
+  // index.html ごと取り直す。中で読むファイルは ?v=版 付きなので、新しい版の分だけ取り直しになる
+  location.replace(`${location.pathname}?u=${Date.now()}${location.hash}`);
+}
+async function checkUpdateOnStart() {
+  const latest = await fetchLatestVersion();
+  if (!latest || latest === APP_VERSION) return;
+  const bar = document.getElementById('update-bar');
+  bar.innerHTML = `<span>新しい版があります（${esc(latest)}）</span><button class="pill" id="btn-update">更新</button>`;
+  bar.hidden = false;
+  document.getElementById('btn-update').onclick = reloadLatest;
+}
+
 /* ================= 画面: 仕分け ================= */
 
 let session = null;
 
 function renderSort(id) {
-  if (!SONG[id]) return go('#/');
+  const today = id === 'today';
+  if (!today && !SONG[id]) return go('#/');
   setMode(false);
-  wantBgm(id);
   if (!session || session.type !== 'sort' || session.song !== id) {
-    const queue = wordsOf(id).filter(w => status(w.id) === 'new').map(w => w.id);
-    if (!queue.length) return location.replace(`#/song/${id}`);
+    const queue = today ? todayNewIds() : wordsOf(id).filter(w => status(w.id) === 'new').map(w => w.id);
+    if (!queue.length) return location.replace(today ? '#/' : `#/song/${id}`);
     session = { type: 'sort', song: id, queue, i: 0, history: [], known: 0, unknown: 0 };
   }
   drawSort();
@@ -376,9 +550,10 @@ function drawSort() {
   const ss = session;
   if (ss.i >= ss.queue.length) return drawSortDone();
   const w = WORD[ss.queue[ss.i]];
+  wantBgm(w.song);
   view.innerHTML = `
-    ${sbarHtml(ss.i, ss.queue.length, `#/song/${ss.song}`)}
-    ${wordHtml(w, { q: '意味がわかる？', meaning: false })}
+    ${sbarHtml(ss.i, ss.queue.length, scopeHome(ss.song))}
+    ${wordHtml(w, { q: '意味がわかる？', meaning: false, song: ss.song === 'today' })}
     <div class="pair">
       <button class="btn" data-sort="0">${ICON.x}知らない</button>
       <button class="btn" data-sort="1">${ICON.check}知ってる</button>
@@ -393,7 +568,7 @@ function doSort(known) {
   const id = ss.queue[ss.i];
   ss.history.push(id);
   if (known) { setClaimed(id); ss.known++; } else { setLearn(id); ss.unknown++; }
-  store.save();
+  addSortedToday(1); markStudied(); store.save();
   ss.i++;
   drawSort();
 }
@@ -402,13 +577,14 @@ function undoSort() {
   const id = ss.history.pop();
   if (!id) return;
   if (status(id) === 'claimed') ss.known--; else ss.unknown--;
-  delete S.w[id]; store.save();
+  delete S.w[id]; addSortedToday(-1); store.save();
   ss.i--;
   drawSort();
 }
 function drawSortDone() {
   const ss = session;
-  const c = counts(wordsOf(ss.song));
+  const scope = ss.song === 'today' ? 'all' : ss.song;
+  const c = counts(wordsOf(scope));
   view.innerHTML = `
     <div class="summary">
       ${summaryHead(LINES.sortDone)}
@@ -419,9 +595,9 @@ function drawSortDone() {
       </div>
     </div>
     <div class="actions">
-      ${c.claimed ? `<button class="btn primary" data-go="#/check/${ss.song}">確認テスト <span class="count">${c.claimed}</span></button>` : ''}
-      ${c.due ? `<button class="btn ${c.claimed ? '' : 'primary'}" data-go="#/learn/${ss.song}">知らない語を学習 <span class="count">${c.due}</span></button>` : ''}
-      <button class="btn" data-go="#/song/${ss.song}">曲のページへ</button>
+      ${c.claimed ? `<button class="btn primary" data-go="#/check/${scope}">確認テスト <span class="count">${c.claimed}</span></button>` : ''}
+      ${c.due ? `<button class="btn ${c.claimed ? '' : 'primary'}" data-go="#/learn/${scope}">知らない語を学習 <span class="count">${c.due}</span></button>` : ''}
+      <button class="btn" data-go="${scopeHome(ss.song)}">${ss.song === 'today' ? 'ホームへ' : '曲のページへ'}</button>
     </div>`;
   session = null;
 }
@@ -438,7 +614,6 @@ function startQuiz(type, id) {
 function renderQuiz(type, id) {
   if (id !== 'all' && !SONG[id]) return go('#/');
   setMode(false);
-  wantBgm(id);
   if (!session || session.type !== type || session.song !== id) startQuiz(type, id);
   drawQuiz();
 }
@@ -447,12 +622,14 @@ function drawQuiz() {
   if (ss.i >= ss.queue.length) return drawQuizDone();
   const w = WORD[ss.queue[ss.i]];
   const r = rec(w.id);
-  const top = sbarHtml(ss.i, ss.queue.length, ss.song === 'all' ? '#/' : `#/song/${ss.song}`);
+  const all = ss.song === 'all';
+  wantBgm(w.song);
+  const top = sbarHtml(ss.i, ss.queue.length, scopeHome(ss.song));
 
   // 学習で初めて出会う語は、先に意味と例文を見せる
   if (ss.type === 'learn' && r && !r.seen && ss.step !== 'quiz') {
     ss.step = 'intro';
-    view.innerHTML = `${top}${wordHtml(w, { q: '新しい語' })}${detailHtml(w)}
+    view.innerHTML = `${top}${wordHtml(w, { q: '新しい語', song: all })}${detailHtml(w)}
       <div class="actions"><button class="btn primary" id="btn-next">覚えた、テストする</button></div>`;
     document.getElementById('btn-next').onclick = () => { r.seen = true; store.save(); ss.step = 'quiz'; drawQuiz(); };
     autoSay(w.id);
@@ -468,7 +645,7 @@ function drawQuiz() {
     body = `<div class="word" style="text-align:left"><div class="q">空欄に入る語は？</div><div class="cloze">${sent}</div><div class="cloze-ja">${esc(w.exJa)}</div></div>`;
   } else {
     opts = shuffle([w, ...distractors(w, 3, 'ja')]); key = 'ja';
-    body = wordHtml(w, { q: '意味は？', meaning: false });
+    body = wordHtml(w, { q: '意味は？', meaning: false, song: all });
   }
   ss.current = { w, opts, answered: false };
   view.innerHTML = `${top}${body}
@@ -484,6 +661,7 @@ function choose(k) {
   cur.answered = true;
   const w = cur.w;
   const ok = cur.opts[k].id === w.id;
+  sfx(ok); buzz(ok);
   const box = document.getElementById('choices');
   box.classList.add('done');
   box.children[k].classList.add(ok ? 'right' : 'wrong');
@@ -506,12 +684,13 @@ function choose(k) {
     <div class="actions"><button class="btn primary" id="btn-next">次へ</button></div>`;
   document.getElementById('btn-next').onclick = nextQuiz;
   document.getElementById('btn-next').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  if (!ok) autoSay(w.id, 'example');
+  // 不正解の音と例文の読み上げが重ならないよう少し待つ
+  if (!ok) setTimeout(() => { if (session === ss && ss.current === cur) autoSay(w.id, 'example'); }, 350);
 }
 function nextQuiz() { session.i++; session.step = null; session.current = null; drawQuiz(); window.scrollTo(0, 0); }
 function drawQuizDone() {
   const ss = session;
-  const backTo = ss.song === 'all' ? '#/' : `#/song/${ss.song}`;
+  const backTo = scopeHome(ss.song);
   const list = wordsOf(ss.song);
   const c = counts(list);
   if (!ss.queue.length) {
@@ -530,7 +709,7 @@ function drawQuizDone() {
     </div>
     <div class="actions">
       ${c.due ? `<button class="btn primary" id="btn-more">続けて学習 <span class="count">${Math.min(c.due, SESSION_MAX)}</span></button>` : ''}
-      <button class="btn ${c.due ? '' : 'primary'}" data-go="${backTo}">戻る</button>
+      <button class="btn ${c.due ? '' : 'primary'}" data-go="${backTo}">${backTo === '#/' ? 'ホームへ' : '戻る'}</button>
     </div>`;
   const more = document.getElementById('btn-more');
   if (more) more.onclick = () => { const s = ss.song; session = null; renderQuiz('learn', s); };
@@ -544,8 +723,10 @@ function render() {
   if (!['sort', 'check', 'learn'].includes(page)) session = null;
   window.scrollTo(0, 0);
   switch (page) {
+    case 'songs': return renderSongs();
     case 'song': return renderSong(arg);
     case 'word': return renderWord(arg);
+    case 'settings': return renderSettings();
     case 'sort': return renderSort(arg);
     case 'check': return renderQuiz('check', arg);
     case 'learn': return renderQuiz('learn', arg);
@@ -564,6 +745,7 @@ document.addEventListener('click', e => {
 
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.target.matches && e.target.matches('input')) return;
   const ss = session;
   if (e.key === ' ') {
     const b = document.querySelector('.play');
@@ -581,20 +763,13 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'Enter') { const b = document.getElementById('btn-next'); if (b) { e.preventDefault(); b.click(); } }
 });
 
-function syncToggles() {
-  document.getElementById('btn-bgm').setAttribute('aria-pressed', String(S.bgm));
-  document.getElementById('btn-voice').setAttribute('aria-pressed', String(S.voice));
-}
-document.getElementById('btn-bgm').onclick = () => { S.bgm = !S.bgm; store.save(); syncToggles(); initAudioGraph(); syncBgm(); };
-document.getElementById('btn-voice').onclick = () => { S.voice = !S.voice; store.save(); syncToggles(); if (!S.voice) voice.pause(); };
-
 // 画面に出ていないときは動画とBGMを止めて電池を守る
 document.addEventListener('visibilitychange', () => {
   const v = document.getElementById('mc-video');
   if (document.hidden) { v.pause(); bgm.pause(); }
-  else { v.play().catch(() => {}); syncBgm(); }
+  else { v.play().catch(() => {}); syncBgm(); checkUpdateOnStart(); }
 });
 
 window.addEventListener('hashchange', render);
-syncToggles();
 render();
+checkUpdateOnStart();
