@@ -155,6 +155,8 @@ main { max-width: 600px; margin: 0 auto; padding: 8px 20px calc(48px + var(--saf
 .pair svg { width: 18px; height: 18px; }
 .keyhint { text-align: center; color: var(--text-3); font-size: 12px; margin-top: 14px; }
 .undo { display: block; margin: 18px auto 0; font-size: 14px; color: var(--text-2); }
+.dunno { display: block; margin: 22px auto 0; padding: 10px 20px; font-size: 14px; color: var(--text-3); }
+.dunno:hover { color: var(--text-2); }
 .undo[disabled] { visibility: hidden; }
 
 .cloze { font-size: 21px; line-height: 1.55; font-weight: 600; letter-spacing: -.01em; text-align: left; }
@@ -177,6 +179,7 @@ main { max-width: 600px; margin: 0 auto; padding: 8px 20px calc(48px + var(--saf
 .verdict { display: flex; align-items: baseline; gap: 10px; font-size: 17px; font-weight: 700; }
 .verdict.ok { color: var(--ok); }
 .verdict.ng { color: var(--ng); }
+.verdict.dunno { color: var(--text-2); }
 .verdict span { color: var(--text-2); font-weight: 500; font-size: 14px; }
 .feedback .detail { margin-top: 14px; }
 

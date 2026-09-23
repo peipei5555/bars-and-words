@@ -6,7 +6,7 @@
 
 /* ================= 設定 ================= */
 
-const APP_VERSION = '2026.09.19-6';   // tools/bump-version.mjs が書き換える
+const APP_VERSION = '2026.09.24-1';   // tools/bump-version.mjs が書き換える
 const DAY = 86400000;
 // 箱ごとの次回出題までの間隔。box 0 は「今日もう一度」
 const INTERVALS = [0, 1 * DAY, 3 * DAY, 7 * DAY, 16 * DAY, 35 * DAY, 90 * DAY];
@@ -675,23 +675,29 @@ function drawQuiz() {
   ss.current = { w, opts, answered: false };
   view.innerHTML = `${top}${body}
     <div class="choices" id="choices">${opts.map((o, k) => `<button class="choice" data-choice="${k}">${esc(o[key])}</button>`).join('')}</div>
+    <button class="dunno" id="btn-dunno" data-choice="-1">わからない</button>
     <div id="after"></div>
-    <div class="keyhint" id="hint">1〜4 で選択</div>`;
+    <div class="keyhint" id="hint">1〜4 で選択　0 わからない</div>`;
   if (!cloze) autoSay(w.id);
 }
 function choose(k) {
   const ss = session;
   const cur = ss && ss.current;
-  if (!cur || cur.answered || !cur.opts[k]) return;
+  // k === -1 は「わからない」。当てずっぽうで正解してしまうのを防ぐため、自己申告で不正解と同じ扱いにする。
+  // 音と振動は鳴らさない（間違えたわけではないので、押しにくくしない）
+  const dunno = k === -1;
+  if (!cur || cur.answered || (!dunno && !cur.opts[k])) return;
   cur.answered = true;
   const w = cur.w;
-  const ok = cur.opts[k].id === w.id;
-  sfx(ok); buzz(ok);
+  const ok = !dunno && cur.opts[k].id === w.id;
+  if (!dunno) { sfx(ok); buzz(ok); }
   const box = document.getElementById('choices');
   box.classList.add('done');
   const btns = box.querySelectorAll('.choice');
-  btns[k].classList.add(ok ? 'right' : 'wrong');
+  if (!dunno) btns[k].classList.add(ok ? 'right' : 'wrong');
   btns[cur.opts.indexOf(w)].classList.add('right');
+  const dn = document.getElementById('btn-dunno');
+  if (dn) (dn.closest('.hwrap') || dn).remove();
 
   if (ss.type === 'check') passCheck(w.id, ok);
   else answer(w.id, ok);
@@ -704,7 +710,7 @@ function choose(k) {
   document.getElementById('hint').remove();
   document.getElementById('after').innerHTML = `
     <div class="feedback">
-      <div class="verdict ${ok ? 'ok' : 'ng'}">${ok ? '正解' : '不正解'}<span>${esc(w.head)} = ${esc(w.ja)}</span></div>
+      <div class="verdict ${ok ? 'ok' : dunno ? 'dunno' : 'ng'}">${ok ? '正解' : dunno ? 'わからない' : '不正解'}<span>${esc(w.head)} = ${esc(w.ja)}</span></div>
       ${ok ? '' : detailHtml(w)}
     </div>
     <div class="actions"><button class="btn primary" id="btn-next">次へ</button></div>`;
@@ -797,6 +803,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (ss.current && !ss.current.answered && /^[1-4]$/.test(e.key)) choose(Number(e.key) - 1);
+  else if (ss.current && !ss.current.answered && e.key === '0') choose(-1);
   else if (e.key === 'Enter') { const b = document.getElementById('btn-next'); if (b) { e.preventDefault(); b.click(); } }
 });
 
